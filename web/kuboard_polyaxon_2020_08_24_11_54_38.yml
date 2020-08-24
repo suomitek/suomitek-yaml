@@ -1,0 +1,75 @@
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: polyaxon
+  name: gateway-base-php74
+  annotations:
+    k8s.kuboard.cn/workload: gateway-base-php74
+    deprecated.daemonset.template.generation: '4'
+    k8s.kuboard.cn/ingress: 'false'
+    k8s.kuboard.cn/service: none
+  labels:
+    k8s.kuboard.cn/layer: gateway
+    k8s.kuboard.cn/name: gateway-base-php74
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: gateway
+      k8s.kuboard.cn/name: gateway-base-php74
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: gateway
+        k8s.kuboard.cn/name: gateway-base-php74
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets:
+        - name: hub.suomitek.com
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'hub.suomitek.com:8002/web/base-php74'
+          imagePullPolicy: Always
+          name: base-php74
+          volumeMounts: []
+          command:
+            - /usr/sbin/init
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          securityContext:
+            privileged: true
+            seLinuxOptions: {}
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      terminationGracePeriodSeconds: 30
+
+---
+metadata:
+  name: hub.suomitek.com
+  namespace: polyaxon
+  managedFields:
+    - manager: Mozilla
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-23T17:29:52Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:.dockerconfigjson': {}
+        'f:type': {}
+data:
+  .dockerconfigjson: >-
+    eyJhdXRocyI6eyJodHRwczovL2h1Yi5zdW9taXRlay5jb206ODAwMi8iOnsidXNlcm5hbWUiOiJzdW9taXRlayIsInBhc3N3b3JkIjoiU3VvbWl0ZWsxMjMiLCJhdXRoIjoiYzNWdmJXbDBaV3M2VTNWdmJXbDBaV3N4TWpNPSJ9fX0=
+type: kubernetes.io/dockerconfigjson
+kind: Secret
+apiVersion: v1
+

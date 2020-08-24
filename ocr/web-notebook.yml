@@ -1,0 +1,104 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-notebook
+  annotations:
+    k8s.kuboard.cn/workload: web-notebook
+    deployment.kubernetes.io/revision: '2'
+    k8s.kuboard.cn/ingress: 'true'
+    k8s.kuboard.cn/service: NodePort
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-notebook
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-notebook
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: jupyter/tensorflow-notebook
+          imagePullPolicy: Always
+          name: tensorflow-notebook
+          volumeMounts: []
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          ports:
+            - hostPort: 8888
+              containerPort: 8888
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      nodeName: h1.corp.suomitek.com
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: web-notebook
+  annotations:
+    k8s.kuboard.cn/workload: web-notebook
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+spec:
+  selector:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+  type: NodePort
+  ports:
+    - port: 8888
+      targetPort: 8888
+      protocol: TCP
+      name: rerrks
+      nodePort: 31778
+  sessionAffinity: None
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  namespace: polyaxon
+  name: web-notebook
+  annotations:
+    k8s.kuboard.cn/workload: web-notebook
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+spec:
+  rules:
+    - host: kube-notebook.yongchehang.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: web-notebook
+              servicePort: rerrks
+

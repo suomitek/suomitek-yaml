@@ -1,0 +1,86 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-chineseocr
+  annotations:
+    k8s.kuboard.cn/workload: web-chineseocr
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/ingress: 'false'
+    k8s.kuboard.cn/service: none
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-chineseocr
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-chineseocr
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-chineseocr
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets:
+        - name: hub.suomitek.com
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'hub.suomitek.com:8002/ai/chineseocr:latest'
+          imagePullPolicy: Always
+          name: chineseocr
+          volumeMounts: []
+          command:
+            - /bin/bash
+            - '-ce'
+            - /root/anaconda3/bin/python app.py
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          ports:
+            - hostPort: 8080
+              containerPort: 8080
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      nodeName: h1.corp.suomitek.com
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+metadata:
+  name: hub.suomitek.com
+  namespace: polyaxon
+  managedFields:
+    - manager: Mozilla
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-23T17:29:52Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:.dockerconfigjson': {}
+        'f:type': {}
+data:
+  .dockerconfigjson: >-
+    eyJhdXRocyI6eyJodHRwczovL2h1Yi5zdW9taXRlay5jb206ODAwMi8iOnsidXNlcm5hbWUiOiJzdW9taXRlayIsInBhc3N3b3JkIjoiU3VvbWl0ZWsxMjMiLCJhdXRoIjoiYzNWdmJXbDBaV3M2VTNWdmJXbDBaV3N4TWpNPSJ9fX0=
+type: kubernetes.io/dockerconfigjson
+kind: Secret
+apiVersion: v1
+
