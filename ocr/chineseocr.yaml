@@ -3,12 +3,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    deployment.kubernetes.io/revision: '5'
+    deployment.kubernetes.io/revision: '1'
     k8s.kuboard.cn/ingress: 'false'
     k8s.kuboard.cn/service: none
     k8s.kuboard.cn/workload: web-chineseocr
-  creationTimestamp: '2020-08-24T03:02:43Z'
-  generation: 5
+  creationTimestamp: '2020-08-24T03:45:00Z'
+  generation: 1
   labels:
     k8s.kuboard.cn/layer: web
     k8s.kuboard.cn/name: web-chineseocr
@@ -16,34 +16,110 @@ metadata:
     - apiVersion: apps/v1
       fieldsType: FieldsV1
       fieldsV1:
-        'f:metadata': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:k8s.kuboard.cn/ingress': {}
+            'f:k8s.kuboard.cn/service': {}
+            'f:k8s.kuboard.cn/workload': {}
+          'f:labels':
+            .: {}
+            'f:k8s.kuboard.cn/layer': {}
+            'f:k8s.kuboard.cn/name': {}
         'f:spec':
-          'f:selector': {}
-          'f:strategy': {}
+          'f:progressDeadlineSeconds': {}
+          'f:replicas': {}
+          'f:revisionHistoryLimit': {}
+          'f:selector':
+            'f:matchLabels':
+              .: {}
+              'f:k8s.kuboard.cn/layer': {}
+              'f:k8s.kuboard.cn/name': {}
+          'f:strategy':
+            'f:rollingUpdate':
+              .: {}
+              'f:maxSurge': {}
+              'f:maxUnavailable': {}
+            'f:type': {}
           'f:template':
-            'f:metadata': {}
+            'f:metadata':
+              'f:labels':
+                .: {}
+                'f:k8s.kuboard.cn/layer': {}
+                'f:k8s.kuboard.cn/name': {}
             'f:spec':
               'f:containers':
                 'k:{"name":"chineseocr"}':
-                  'f:ports': {}
-              'f:imagePullSecrets': {}
+                  .: {}
+                  'f:command': {}
+                  'f:image': {}
+                  'f:imagePullPolicy': {}
+                  'f:name': {}
+                  'f:ports':
+                    .: {}
+                    'k:{"containerPort":8080,"protocol":"TCP"}':
+                      .: {}
+                      'f:containerPort': {}
+                      'f:hostPort': {}
+                      'f:protocol': {}
+                  'f:resources': {}
+                  'f:terminationMessagePath': {}
+                  'f:terminationMessagePolicy': {}
+              'f:dnsConfig': {}
+              'f:dnsPolicy': {}
+              'f:imagePullSecrets':
+                .: {}
+                'k:{"name":"hub.suomitek.com"}':
+                  .: {}
+                  'f:name': {}
+              'f:nodeName': {}
+              'f:restartPolicy': {}
+              'f:schedulerName': {}
+              'f:securityContext':
+                .: {}
+                'f:seLinuxOptions': {}
+              'f:terminationGracePeriodSeconds': {}
       manager: Mozilla
       operation: Update
-      time: '2020-08-24T03:20:25Z'
+      time: '2020-08-24T03:45:00Z'
     - apiVersion: apps/v1
       fieldsType: FieldsV1
       fieldsV1:
-        'f:metadata': {}
+        'f:metadata':
+          'f:annotations':
+            'f:deployment.kubernetes.io/revision': {}
         'f:status':
-          'f:conditions': {}
+          'f:availableReplicas': {}
+          'f:conditions':
+            .: {}
+            'k:{"type":"Available"}':
+              .: {}
+              'f:lastTransitionTime': {}
+              'f:lastUpdateTime': {}
+              'f:message': {}
+              'f:reason': {}
+              'f:status': {}
+              'f:type': {}
+            'k:{"type":"Progressing"}':
+              .: {}
+              'f:lastTransitionTime': {}
+              'f:lastUpdateTime': {}
+              'f:message': {}
+              'f:reason': {}
+              'f:status': {}
+              'f:type': {}
+          'f:observedGeneration': {}
+          'f:readyReplicas': {}
+          'f:replicas': {}
+          'f:updatedReplicas': {}
       manager: kube-controller-manager
       operation: Update
-      time: '2020-08-24T03:20:25Z'
+      time: '2020-08-24T03:45:02Z'
   name: web-chineseocr
   namespace: polyaxon
-  resourceVersion: '1528104'
+  resourceVersion: '1535441'
   selfLink: /apis/apps/v1/namespaces/polyaxon/deployments/web-chineseocr
-  uid: 4114702f-5134-4e88-84f7-f668c57f19f6
+  uid: 9a83d599-ddef-40f9-8cd6-dd70cc49d9eb
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
@@ -59,6 +135,7 @@ spec:
     type: RollingUpdate
   template:
     metadata:
+      creationTimestamp: null
       labels:
         k8s.kuboard.cn/layer: web
         k8s.kuboard.cn/name: web-chineseocr
@@ -75,33 +152,18 @@ spec:
             - containerPort: 8080
               hostPort: 8080
               protocol: TCP
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
+      dnsConfig: {}
       dnsPolicy: ClusterFirst
       imagePullSecrets:
         - name: hub.suomitek.com
+      nodeName: h1.corp.suomitek.com
       restartPolicy: Always
       schedulerName: default-scheduler
+      securityContext:
+        seLinuxOptions: {}
       terminationGracePeriodSeconds: 30
-status:
-  availableReplicas: 1
-  conditions:
-    - lastTransitionTime: '2020-08-24T03:10:31Z'
-      lastUpdateTime: '2020-08-24T03:10:31Z'
-      message: Deployment has minimum availability.
-      reason: MinimumReplicasAvailable
-      status: 'True'
-      type: Available
-    - lastTransitionTime: '2020-08-24T03:02:43Z'
-      lastUpdateTime: '2020-08-24T03:20:25Z'
-      message: ReplicaSet "web-chineseocr-7548cd9c64" is progressing.
-      reason: ReplicaSetUpdated
-      status: 'True'
-      type: Progressing
-  observedGeneration: 5
-  readyReplicas: 1
-  replicas: 2
-  unavailableReplicas: 1
-  updatedReplicas: 1
 
 
