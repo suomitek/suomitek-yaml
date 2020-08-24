@@ -2,168 +2,83 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  namespace: polyaxon
+  name: web-chineseocr
   annotations:
+    k8s.kuboard.cn/workload: web-chineseocr
     deployment.kubernetes.io/revision: '1'
     k8s.kuboard.cn/ingress: 'false'
     k8s.kuboard.cn/service: none
-    k8s.kuboard.cn/workload: web-chineseocr
-  creationTimestamp: '2020-08-24T03:45:00Z'
-  generation: 1
   labels:
     k8s.kuboard.cn/layer: web
     k8s.kuboard.cn/name: web-chineseocr
-  managedFields:
-    - apiVersion: apps/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:annotations':
-            .: {}
-            'f:k8s.kuboard.cn/ingress': {}
-            'f:k8s.kuboard.cn/service': {}
-            'f:k8s.kuboard.cn/workload': {}
-          'f:labels':
-            .: {}
-            'f:k8s.kuboard.cn/layer': {}
-            'f:k8s.kuboard.cn/name': {}
-        'f:spec':
-          'f:progressDeadlineSeconds': {}
-          'f:replicas': {}
-          'f:revisionHistoryLimit': {}
-          'f:selector':
-            'f:matchLabels':
-              .: {}
-              'f:k8s.kuboard.cn/layer': {}
-              'f:k8s.kuboard.cn/name': {}
-          'f:strategy':
-            'f:rollingUpdate':
-              .: {}
-              'f:maxSurge': {}
-              'f:maxUnavailable': {}
-            'f:type': {}
-          'f:template':
-            'f:metadata':
-              'f:labels':
-                .: {}
-                'f:k8s.kuboard.cn/layer': {}
-                'f:k8s.kuboard.cn/name': {}
-            'f:spec':
-              'f:containers':
-                'k:{"name":"chineseocr"}':
-                  .: {}
-                  'f:command': {}
-                  'f:image': {}
-                  'f:imagePullPolicy': {}
-                  'f:name': {}
-                  'f:ports':
-                    .: {}
-                    'k:{"containerPort":8080,"protocol":"TCP"}':
-                      .: {}
-                      'f:containerPort': {}
-                      'f:hostPort': {}
-                      'f:protocol': {}
-                  'f:resources': {}
-                  'f:terminationMessagePath': {}
-                  'f:terminationMessagePolicy': {}
-              'f:dnsConfig': {}
-              'f:dnsPolicy': {}
-              'f:imagePullSecrets':
-                .: {}
-                'k:{"name":"hub.suomitek.com"}':
-                  .: {}
-                  'f:name': {}
-              'f:nodeName': {}
-              'f:restartPolicy': {}
-              'f:schedulerName': {}
-              'f:securityContext':
-                .: {}
-                'f:seLinuxOptions': {}
-              'f:terminationGracePeriodSeconds': {}
-      manager: Mozilla
-      operation: Update
-      time: '2020-08-24T03:45:00Z'
-    - apiVersion: apps/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:annotations':
-            'f:deployment.kubernetes.io/revision': {}
-        'f:status':
-          'f:availableReplicas': {}
-          'f:conditions':
-            .: {}
-            'k:{"type":"Available"}':
-              .: {}
-              'f:lastTransitionTime': {}
-              'f:lastUpdateTime': {}
-              'f:message': {}
-              'f:reason': {}
-              'f:status': {}
-              'f:type': {}
-            'k:{"type":"Progressing"}':
-              .: {}
-              'f:lastTransitionTime': {}
-              'f:lastUpdateTime': {}
-              'f:message': {}
-              'f:reason': {}
-              'f:status': {}
-              'f:type': {}
-          'f:observedGeneration': {}
-          'f:readyReplicas': {}
-          'f:replicas': {}
-          'f:updatedReplicas': {}
-      manager: kube-controller-manager
-      operation: Update
-      time: '2020-08-24T03:45:02Z'
-  name: web-chineseocr
-  namespace: polyaxon
-  resourceVersion: '1535441'
-  selfLink: /apis/apps/v1/namespaces/polyaxon/deployments/web-chineseocr
-  uid: 9a83d599-ddef-40f9-8cd6-dd70cc49d9eb
 spec:
-  progressDeadlineSeconds: 600
-  replicas: 1
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
       k8s.kuboard.cn/layer: web
       k8s.kuboard.cn/name: web-chineseocr
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
+  revisionHistoryLimit: 10
   template:
     metadata:
-      creationTimestamp: null
       labels:
         k8s.kuboard.cn/layer: web
         k8s.kuboard.cn/name: web-chineseocr
     spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets:
+        - name: hub.suomitek.com
+      restartPolicy: Always
+      initContainers: []
       containers:
-        - command:
+        - image: 'hub.suomitek.com:8002/ai/chineseocr:latest'
+          imagePullPolicy: Always
+          name: chineseocr
+          volumeMounts: []
+          command:
             - /bin/bash
             - '-ce'
             - /root/anaconda3/bin/python app.py
-          image: 'hub.suomitek.com:8002/ai/chineseocr:latest'
-          imagePullPolicy: Always
-          name: chineseocr
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
           ports:
-            - containerPort: 8080
-              hostPort: 8080
+            - hostPort: 8080
+              containerPort: 8080
               protocol: TCP
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-      dnsConfig: {}
+      volumes: []
       dnsPolicy: ClusterFirst
-      imagePullSecrets:
-        - name: hub.suomitek.com
+      dnsConfig: {}
       nodeName: h1.corp.suomitek.com
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext:
-        seLinuxOptions: {}
       terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
 
-
+---
+metadata:
+  name: hub.suomitek.com
+  namespace: polyaxon
+  managedFields:
+    - manager: Mozilla
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-23T17:29:52Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:.dockerconfigjson': {}
+        'f:type': {}
+data:
+  .dockerconfigjson: >-
+    eyJhdXRocyI6eyJodHRwczovL2h1Yi5zdW9taXRlay5jb206ODAwMi8iOnsidXNlcm5hbWUiOiJzdW9taXRlayIsInBhc3N3b3JkIjoiU3VvbWl0ZWsxMjMiLCJhdXRoIjoiYzNWdmJXbDBaV3M2VTNWdmJXbDBaV3N4TWpNPSJ9fX0=
+type: kubernetes.io/dockerconfigjson
+kind: Secret
+apiVersion: v1
