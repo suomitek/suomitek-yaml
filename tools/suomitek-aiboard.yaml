@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suomitek-aiboard
+  namespace: kube-system
+  annotations:
+    k8s.suomitek.com/displayName: suomitek-aiboard
+    k8s.suomitek.com/ingress: "true"
+    k8s.suomitek.com/service: NodePort
+    k8s.suomitek.com/workload: suomitek-aiboard
+  labels:
+    k8s.suomitek.com/layer: monitor
+    k8s.suomitek.com/name: suomitek-aiboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s.suomitek.com/layer: monitor
+      k8s.suomitek.com/name: suomitek-aiboard
+  template:
+    metadata:
+      labels:
+        k8s.suomitek.com/layer: monitor
+        k8s.suomitek.com/name: suomitek-aiboard
+    spec:
+      containers:
+      - name: suomitek-aiboard
+        image: hub.suomitek.com:8002/ai/suomitek-aiboard:latest
+        imagePullPolicy: Always
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: suomitek-aiboard
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 32566
+  selector:
+    k8s.suomitek.com/layer: monitor
+    k8s.suomitek.com/name: suomitek-aiboard
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: suomitek-aiboard-user
+  namespace: kube-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: suomitek-aiboard-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: suomitek-aiboard-user
+  namespace: kube-system
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: suomitek-aiboard-viewer
+  namespace: kube-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: suomitek-aiboard-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+- kind: ServiceAccount
+  name: suomitek-aiboard-viewer
+  namespace: kube-system
+
+# ---
+# apiVersion: extensions/v1beta1
+# kind: Ingress
+# metadata:
+#   name: suomitek-aiboard
+#   namespace: kube-system
+#   annotations:
+#     k8s.suomitek.com/displayName: suomitek-aiboard
+#     k8s.suomitek.com/workload: suomitek-aiboard
+#     nginx.org/websocket-services: "suomitek-aiboard"
+#     nginx.com/sticky-cookie-services: "serviceName=suomitek-aiboard srv_id expires=1h path=/"
+# spec:
+#   rules:
+#   - host: suomitek-aiboard.yourdomain.com
+#     http:
+#       paths:
+#       - path: /
+#         backend:
+#           serviceName: suomitek-aiboard
+#           servicePort: http
