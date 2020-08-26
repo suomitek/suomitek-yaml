@@ -1,0 +1,1156 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kubeapps
+  name: kubeapps
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: kubeapps
+    release: kubeapps
+spec:
+  selector:
+    matchLabels:
+      app: kubeapps
+      release: kubeapps
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: kubeapps
+        release: kubeapps
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'docker.io/bitnami/nginx:1.19.2-debian-10-r1'
+          imagePullPolicy: IfNotPresent
+          name: nginx
+          volumeMounts:
+            - name: vhost
+              mountPath: /opt/bitnami/nginx/conf/server_blocks
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          env: []
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          lifecycle: {}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+      volumes:
+        - name: vhost
+          configMap:
+            name: kubeapps-frontend-config
+            defaultMode: 420
+            items: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kubeapps
+  name: kubeapps
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps
+  labels:
+    app: kubeapps
+    release: kubeapps
+spec:
+  selector:
+    app: kubeapps
+    release: kubeapps
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: .nan
+      protocol: TCP
+      name: http
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-apprepository-controller
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-apprepository-controller
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: none
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: kubeapps-internal-apprepository-controller
+    release: kubeapps
+spec:
+  selector:
+    matchLabels:
+      app: kubeapps-internal-apprepository-controller
+      release: kubeapps
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: kubeapps-internal-apprepository-controller
+        release: kubeapps
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      serviceAccountName: kubeapps-internal-apprepository-controller
+      initContainers: []
+      containers:
+        - image: >-
+            docker.io/bitnami/kubeapps-apprepository-controller:1.11.1-scratch-r0
+          imagePullPolicy: IfNotPresent
+          name: controller
+          volumeMounts: []
+          command:
+            - /apprepository-controller
+          args:
+            - '--user-agent-comment=kubeapps/v1.11.1'
+            - >-
+              --repo-sync-image=docker.io/bitnami/kubeapps-asset-syncer:1.11.1-scratch-r0
+            - '--repo-sync-cmd=/asset-syncer'
+            - '--namespace=kubeapps'
+            - '--database-secret-name=kubeapps-db'
+            - '--database-secret-key=postgresql-password'
+            - '--database-type=postgresql'
+            - '--database-url=kubeapps-postgresql:5432'
+            - '--database-user=postgres'
+            - '--database-name=assets'
+            - '--repos-per-namespace'
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          env: []
+          lifecycle: {}
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-assetsvc
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-assetsvc
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: kubeapps-internal-assetsvc
+    release: kubeapps
+spec:
+  selector:
+    matchLabels:
+      app: kubeapps-internal-assetsvc
+      release: kubeapps
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: kubeapps-internal-assetsvc
+        release: kubeapps
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'docker.io/bitnami/kubeapps-assetsvc:1.11.1-scratch-r0'
+          imagePullPolicy: IfNotPresent
+          name: assetsvc
+          volumeMounts: []
+          command:
+            - /assetsvc
+          args:
+            - '--database-type=postgresql'
+            - '--database-user=postgres'
+            - '--database-name=assets'
+            - '--database-url=kubeapps-postgresql-headless:5432'
+          resources:
+            limits:
+            requests:
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubeapps-db
+                  key: postgresql-password
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          lifecycle: {}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-assetsvc
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-assetsvc
+  labels:
+    app: kubeapps-internal-assetsvc
+    release: kubeapps
+spec:
+  selector:
+    app: kubeapps-internal-assetsvc
+    release: kubeapps
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: .nan
+      protocol: TCP
+      name: http
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-dashboard
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-dashboard
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: kubeapps-internal-dashboard
+    release: kubeapps
+spec:
+  selector:
+    matchLabels:
+      app: kubeapps-internal-dashboard
+      release: kubeapps
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: kubeapps-internal-dashboard
+        release: kubeapps
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'docker.io/bitnami/kubeapps-dashboard:1.11.1-debian-10-r0'
+          imagePullPolicy: IfNotPresent
+          name: dashboard
+          volumeMounts:
+            - name: vhost
+              mountPath: /opt/bitnami/nginx/conf/server_blocks
+            - name: config
+              mountPath: /app/config.json
+              subPath: config.json
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          env: []
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          lifecycle: {}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+      volumes:
+        - name: vhost
+          configMap:
+            name: kubeapps-internal-dashboard-config
+            items:
+              - key: vhost.conf
+                path: vhost.conf
+            defaultMode: 420
+        - name: config
+          configMap:
+            name: kubeapps-internal-dashboard-config
+            items:
+              - key: config.json
+                path: config.json
+            defaultMode: 420
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-dashboard
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-dashboard
+  labels:
+    app: kubeapps-internal-dashboard
+    release: kubeapps
+spec:
+  selector:
+    app: kubeapps-internal-dashboard
+    release: kubeapps
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: .nan
+      protocol: TCP
+      name: http
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-tiller-proxy
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-tiller-proxy
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: kubeapps-internal-tiller-proxy
+    release: kubeapps
+spec:
+  selector:
+    matchLabels:
+      app: kubeapps-internal-tiller-proxy
+      release: kubeapps
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: kubeapps-internal-tiller-proxy
+        release: kubeapps
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      serviceAccountName: kubeapps-internal-tiller-proxy
+      initContainers: []
+      containers:
+        - image: 'docker.io/bitnami/kubeapps-tiller-proxy:1.11.1-scratch-r0'
+          imagePullPolicy: IfNotPresent
+          name: proxy
+          volumeMounts: []
+          command:
+            - /proxy
+          args:
+            - '--host=tiller-deploy.kube-system:44134'
+            - '--user-agent-comment=kubeapps/v1.11.1'
+            - '--assetsvc-url=http://kubeapps-internal-assetsvc:8080'
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+              scheme: HTTP
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          lifecycle: {}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 300
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kubeapps
+  name: kubeapps-internal-tiller-proxy
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-internal-tiller-proxy
+  labels:
+    app: kubeapps-internal-tiller-proxy
+    release: kubeapps
+spec:
+  selector:
+    app: kubeapps-internal-tiller-proxy
+    release: kubeapps
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: .nan
+      protocol: TCP
+      name: http
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: kubeapps
+  name: kubeapps-postgresql-master
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-postgresql-master
+    k8s.kuboard.cn/service: none
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: postgresql
+    release: kubeapps
+    role: master
+spec:
+  selector:
+    matchLabels:
+      app: postgresql
+      release: kubeapps
+      role: master
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        release: kubeapps
+        role: master
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'docker.io/bitnami/postgresql:11.8.0-debian-10-r57'
+          imagePullPolicy: IfNotPresent
+          name: kubeapps-postgresql
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+          env:
+            - name: BITNAMI_DEBUG
+              value: 'false'
+            - name: POSTGRESQL_PORT_NUMBER
+              value: '5432'
+            - name: POSTGRESQL_VOLUME_DIR
+              value: /bitnami/postgresql
+            - name: PGDATA
+              value: /bitnami/postgresql/data
+            - name: POSTGRES_REPLICATION_MODE
+              value: master
+            - name: POSTGRES_REPLICATION_USER
+              value: repl_user
+            - name: POSTGRES_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubeapps-db
+                  key: postgresql-replication-password
+            - name: POSTGRES_CLUSTER_APP_NAME
+              value: my_application
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubeapps-db
+                  key: postgresql-password
+            - name: POSTGRES_DB
+              value: assets
+            - name: POSTGRESQL_ENABLE_LDAP
+              value: 'no'
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - '-c'
+                - '-e'
+                - >
+                  exec pg_isready -U "postgres" -d "assets" -h 127.0.0.1 -p 5432
+
+                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f
+                  /bitnami/postgresql/.initialized ]
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - '-c'
+                - exec pg_isready -U "postgres" -d "assets" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          lifecycle: {}
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+      volumes:
+        - name: dshm
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  replicas: 1
+  volumeClaimTemplates: []
+  serviceName: kubeapps-postgresql-headless
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: kubeapps
+  name: kubeapps-postgresql-slave
+  annotations:
+    k8s.kuboard.cn/workload: kubeapps-postgresql-slave
+    k8s.kuboard.cn/service: none
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: postgresql
+    release: kubeapps
+    role: slave
+spec:
+  selector:
+    matchLabels:
+      app: postgresql
+      release: kubeapps
+      role: slave
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        release: kubeapps
+        role: slave
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'docker.io/bitnami/postgresql:11.8.0-debian-10-r57'
+          imagePullPolicy: IfNotPresent
+          name: kubeapps-postgresql
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+          env:
+            - name: BITNAMI_DEBUG
+              value: 'false'
+            - name: POSTGRESQL_VOLUME_DIR
+              value: /bitnami/postgresql
+            - name: POSTGRESQL_PORT_NUMBER
+              value: '5432'
+            - name: PGDATA
+              value: /bitnami/postgresql/data
+            - name: POSTGRES_REPLICATION_MODE
+              value: slave
+            - name: POSTGRES_REPLICATION_USER
+              value: repl_user
+            - name: POSTGRES_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubeapps-db
+                  key: postgresql-replication-password
+            - name: POSTGRES_CLUSTER_APP_NAME
+              value: my_application
+            - name: POSTGRES_MASTER_HOST
+              value: kubeapps-postgresql
+            - name: POSTGRES_MASTER_PORT_NUMBER
+              value: '5432'
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubeapps-db
+                  key: postgresql-password
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - '-c'
+                - '-e'
+                - >
+                  exec pg_isready -U "postgres" -d "assets" -h 127.0.0.1 -p 5432
+
+                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f
+                  /bitnami/postgresql/.initialized ]
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - '-c'
+                - exec pg_isready -U "postgres" -d "assets" -h 127.0.0.1 -p 5432
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          lifecycle: {}
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+      volumes:
+        - name: dshm
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  replicas: 1
+  volumeClaimTemplates: []
+  serviceName: kubeapps-postgresql-headless
+
+---
+metadata:
+  name: kubeapps-frontend-config
+  namespace: kubeapps
+  labels:
+    app: kubeapps-frontend-config
+    app.kubernetes.io/instance: kubeapps
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/name: kubeapps
+    chart: kubeapps-3.9.0
+    helm.sh/chart: kubeapps-3.9.0
+    heritage: Tiller
+    release: kubeapps
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-26T07:16:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:k8s-api-proxy.conf': {}
+          'f:vhost.conf': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:chart': {}
+            'f:helm.sh/chart': {}
+            'f:heritage': {}
+            'f:release': {}
+data:
+  k8s-api-proxy.conf: >-
+    # Disable buffering for log streaming
+
+    proxy_buffering off;
+
+    # Hide Www-Authenticate to prevent it triggering a basic auth prompt in
+
+    # the browser with some clusters
+
+    proxy_hide_header Www-Authenticate;
+
+
+    # Keep the connection open with the API server even if idle (the default is
+    60 seconds)
+
+    # Setting it to 1 hour which should be enough for our current use case of
+    deploying/upgrading apps
+
+    # If we enable other use-cases in the future we might need to bump this
+    value
+
+    # More info here https://github.com/kubeapps/kubeapps/issues/766
+
+    proxy_read_timeout 1h;
+  vhost.conf: >-
+    # Retain the default nginx handling of requests without a "Connection"
+    header
+
+    map $http_upgrade $connection_upgrade {
+      default upgrade;
+      ''      close;
+    }
+
+
+    # Allow websocket connections
+
+    proxy_set_header Upgrade    $http_upgrade;
+
+    proxy_set_header Connection $connection_upgrade;
+
+
+    server {
+      listen 8080;
+      server_name _;
+
+      location /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "healthy\n";
+      }
+
+      # The default cluster running on the same cluster as Kubeapps.
+      location ~* /api/clusters/default {
+        rewrite /api/clusters/default/(.*) /$1 break;
+        rewrite /api/clusters/default / break;
+        proxy_pass https://kubernetes.default;
+        include "./server_blocks/k8s-api-proxy.conf";
+      }
+
+      # Ensure each additional cluster can be reached (should only be
+      # used with an auth-proxy where k8s credentials never leave
+      # the cluster). See clusters option.
+
+      # TODO: The following location is left for backwards compat but will no longer
+      # be needed once clients are sending the cluster name.
+      # Using regexp match instead of prefix one because the application can be
+      # deployed under a specific path i.e /kubeapps
+      location ~* /api/kube {
+        rewrite /api/kube/(.*) /$1 break;
+        rewrite /api/kube / break;
+        proxy_pass https://kubernetes.default;
+        include "./server_blocks/k8s-api-proxy.conf";
+      }
+
+      location ~* /api/assetsvc {
+        rewrite /api/assetsvc/(.*) /assetsvc/$1 break;
+        rewrite /api/assetsvc /assetsvc break;
+
+        proxy_pass http://kubeapps-internal-tiller-proxy:8080;
+      }
+
+      location ~* /api/tiller-deploy {
+        # Keep the connection open with the API server even if idle (the default is 60 seconds)
+        # Setting it to 10 minutes which should be enough for our current use case of deploying/upgrading/deleting apps
+        proxy_read_timeout 10m;
+        rewrite /api/tiller-deploy/(.*) /$1 break;
+        rewrite /api/tiller-deploy / break;
+        proxy_pass http://kubeapps-internal-tiller-proxy:8080;
+      }
+
+      # The route for the Kubeapps backend API is not prefixed.
+      location ~* /api/ {
+        rewrite /api/(.*) /backend/$1 break;
+        rewrite /api/ /backend break;
+
+        proxy_pass http://kubeapps-internal-tiller-proxy:8080;
+      }
+
+      location / {
+        # Add the Authorization header if exists
+        add_header Authorization $http_authorization;
+
+        proxy_pass http://kubeapps-internal-dashboard:8080;
+      }
+    }
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: kubeapps-internal-dashboard-config
+  namespace: kubeapps
+  labels:
+    app: kubeapps-internal-dashboard-config
+    app.kubernetes.io/instance: kubeapps
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/name: kubeapps
+    chart: kubeapps-3.9.0
+    helm.sh/chart: kubeapps-3.9.0
+    heritage: Tiller
+    release: kubeapps
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-26T07:16:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:config.json': {}
+          'f:vhost.conf': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:chart': {}
+            'f:helm.sh/chart': {}
+            'f:heritage': {}
+            'f:release': {}
+data:
+  config.json: |-
+    {
+      "namespace": "kubeapps",
+      "appVersion": "v1.11.1",
+      "authProxyEnabled": false,
+      "oauthLoginURI": "/oauth2/start",
+      "oauthLogoutURI": "/oauth2/sign_out",
+      "featureFlags": {"invalidateCache":true,"operators":false,"ui":"hex"},
+      "clusters": []
+    }
+  vhost.conf: |-
+    server {
+      listen 8080;
+      server_name _;
+
+      gzip on;
+      gzip_static  on;
+
+      location / {
+        # Redirects are required to be relative otherwise the internal hostname will be exposed
+        absolute_redirect off;
+
+        # Trailing / is required in the path for the React app to be loaded correctly
+        # The rewrite rule adds a trailing "/" to any path that does not contain "." neither "/".
+        # i.e kubeapps => kubeapps/
+        rewrite ^([^.]*[^/])$ $1/ permanent;
+
+        # Support for ingress prefixes maintaining compatibility with the default /
+        # 1 - Exactly two fragment URLs for files existing inside of the public/ dir
+        # i.e /[prefix]/config.json => /config.json
+        rewrite ^/[^/]+/([^/]+)$ /$1 break;
+
+        # 2 - Any static files bundled by webpack referenced by 3 or more URL segments
+        # i.e /[prefix]/static/main.js => static/main.js
+        rewrite ^/[^/]+/static/(.*) /static/$1 break;
+
+        try_files $uri /index.html;
+      }
+    }
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: kubeapps-db
+  namespace: kubeapps
+  labels:
+    app.kubernetes.io/instance: kubeapps
+    app.kubernetes.io/managed-by: Tiller
+    chart: kubeapps-3.9.0
+    helm.sh/chart: kubeapps-3.9.0
+    heritage: Tiller
+    release: kubeapps
+  annotations:
+    helm.sh/hook: pre-install
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-26T07:16:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:postgresql-password': {}
+          'f:postgresql-replication-password': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:helm.sh/hook': {}
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:chart': {}
+            'f:helm.sh/chart': {}
+            'f:heritage': {}
+            'f:release': {}
+        'f:type': {}
+data:
+  postgresql-password: SDA2YWFtUkpXTw==
+  postgresql-replication-password: Z1R5cFRieU9CMQ==
+type: Opaque
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: kubeapps-internal-apprepository-controller-token-kndk5
+  namespace: kubeapps
+  annotations:
+    kubernetes.io/service-account.name: kubeapps-internal-apprepository-controller
+    kubernetes.io/service-account.uid: 63d3ff9c-a84d-40ed-9eb2-0bf4d28b5c85
+  managedFields:
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-26T07:16:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:ca.crt': {}
+          'f:namespace': {}
+          'f:token': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubernetes.io/service-account.name': {}
+            'f:kubernetes.io/service-account.uid': {}
+        'f:type': {}
+data:
+  ca.crt: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01EZ3hPREF6TVRZek5sb1hEVE13TURneE5qQXpNVFl6Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTURqCi9idld2NHl3cEZwazErT0ZTVFhmNE9wSUoxNXdhNVZuSURYN2x4MHlqdjJlcll3aUVVZ0gwWDdCSlh3TTlpNG4KeVphSHNtcnY0RGRkekNxS25jSlZBanRQTk9kemNOd1IxS0twY2JaNzNWODdZeDNNSVZaZi9vU0tLdDcvLzNwSwp1dWxmWGtabU5KRktYQW96QTNyZjg5bWtpZVpRRlgwN0V1K2VSNDdweGkzMTNkTnJQT0xXSlhVd1VhVDhKT2YrCi9DWDZxOW1vQ01CVnR5eUY2UkxoaGp0VG9wdnZrSWlveXNTbTByNkNiejBYc0RwUlBkZUtHWXU0WjVYSlVrcFgKZ3FNUDh4RktsLzJhWERLeng4ZGdjckk5V0h3UXR3MmtXK3ZGSHN0RnRwdG1OdFExN01jaGJERHJDd00rcFhVeAovbFE2RWE4ZkIxckM4c09WR1U4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGeVI0eTgzTHNtcjl4a1Uwd2lUc0gzdXRvbisKYzJGeXMyZy9jNXRwUUxXSDZUZFczZ01OWjhMTk5BNDgzdkE1NEFZeG1jbWJzeklCYnhwekVZRE1kT0FQSFRqagowaUpZei9Ra0ZveThuSFFUNk9Yd0xjQk9iRmJnQktNdlRQRGNFNjZ0YWNMdUYrWXMxVFRqYmJRc1RqNytUaUVGCkN1WnJzam44U1l3czRaMlJ6bE9na3prem9FdHZCY3hwZXhDQUNkZ2ZyR3dBd3ZNVTQyS2hxeXg4bHptQm1HMWIKZ3R4MUNQQW12TjUxd05UUjVvL1JMWURQb2Nhc1dPMU9tT0lLQmplKzhHTGFNMnFqcmkyb3p6YTNoMERnekF5OQpQL0h0dGNuZ042WlZCcTYyU2gyR3hZOGxaL2Zod0N6R2w3TDlzWkk5TDdBUG81bnZRVHF2TlBEbUVnMD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  namespace: a3ViZWFwcHM=
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklpMTRTelJ0UkhoR2RVTXlkbHBFYlZGRldWOXNVMDB4Y0RKVlRXc3liSGR5ZVdndFpscE1aM2hqY1VFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUpyZFdKbFlYQndjeUlzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUpyZFdKbFlYQndjeTFwYm5SbGNtNWhiQzFoY0hCeVpYQnZjMmwwYjNKNUxXTnZiblJ5YjJ4c1pYSXRkRzlyWlc0dGEyNWthelVpTENKcmRXSmxjbTVsZEdWekxtbHZMM05sY25acFkyVmhZMk52ZFc1MEwzTmxjblpwWTJVdFlXTmpiM1Z1ZEM1dVlXMWxJam9pYTNWaVpXRndjSE10YVc1MFpYSnVZV3d0WVhCd2NtVndiM05wZEc5eWVTMWpiMjUwY205c2JHVnlJaXdpYTNWaVpYSnVaWFJsY3k1cGJ5OXpaWEoyYVdObFlXTmpiM1Z1ZEM5elpYSjJhV05sTFdGalkyOTFiblF1ZFdsa0lqb2lOak5rTTJabU9XTXRZVGcwWkMwME1HVmtMVGxsWWpJdE1HSm1OR1F5T0dJMVl6ZzFJaXdpYzNWaUlqb2ljM2x6ZEdWdE9uTmxjblpwWTJWaFkyTnZkVzUwT210MVltVmhjSEJ6T210MVltVmhjSEJ6TFdsdWRHVnlibUZzTFdGd2NISmxjRzl6YVhSdmNua3RZMjl1ZEhKdmJHeGxjaUo5Lk9PcnVJYzFrU1FYSUEwUnNSbU9YZzl6RmhPVDZ4eWFqQm5tRFdtc0YxTTA3ZGFHOENKcm84REhzd1hXQ1Bhejd2ekFjcVdwanBNQ181eFc1eVdPTkJMdHFaTVJVTkttelJJbU9LRlFiS1JyT0F2NUNpMUNBZXhtc1FLdjFmY0d2eWZDZnVaUEJaWE5uME1qQTV0ckxIaG5NaHkxOHZMNzRXMXcyT0lZanZHZ0RfcWExV3RGUEEwLWd5T3BJZkhOMDEzazlvOGRxd3dWNTZzYlpNTUNLVjBoQncwM2FzOHFwc05NX3hzV0dQYXdOcjhvS1ZFeUVOOWRjV2xodzAyMnBmSU10eDd4MERlWTNtaFVCNThIdEhYQXMwWjE3MVlTbjZBZFdQaEVvOEZsWS0yOHB4UHFORWM3bkxnVDJwbGdsdkZyVmhYU3BBUmQ3NEQ4aHNYZ2V2dw==
+type: kubernetes.io/service-account-token
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: kubeapps-internal-apprepository-job-postupgrade-token-24knb
+  namespace: kubeapps
+  annotations:
+    kubernetes.io/service-account.name: kubeapps-internal-apprepository-job-postupgrade
+    kubernetes.io/service-account.uid: b3151f60-0d64-4a85-90df-648f147d0043
+  managedFields:
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-26T07:16:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:ca.crt': {}
+          'f:namespace': {}
+          'f:token': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubernetes.io/service-account.name': {}
+            'f:kubernetes.io/service-account.uid': {}
+        'f:type': {}
+data:
+  ca.crt: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01EZ3hPREF6TVRZek5sb1hEVE13TURneE5qQXpNVFl6Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTURqCi9idld2NHl3cEZwazErT0ZTVFhmNE9wSUoxNXdhNVZuSURYN2x4MHlqdjJlcll3aUVVZ0gwWDdCSlh3TTlpNG4KeVphSHNtcnY0RGRkekNxS25jSlZBanRQTk9kemNOd1IxS0twY2JaNzNWODdZeDNNSVZaZi9vU0tLdDcvLzNwSwp1dWxmWGtabU5KRktYQW96QTNyZjg5bWtpZVpRRlgwN0V1K2VSNDdweGkzMTNkTnJQT0xXSlhVd1VhVDhKT2YrCi9DWDZxOW1vQ01CVnR5eUY2UkxoaGp0VG9wdnZrSWlveXNTbTByNkNiejBYc0RwUlBkZUtHWXU0WjVYSlVrcFgKZ3FNUDh4RktsLzJhWERLeng4ZGdjckk5V0h3UXR3MmtXK3ZGSHN0RnRwdG1OdFExN01jaGJERHJDd00rcFhVeAovbFE2RWE4ZkIxckM4c09WR1U4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGeVI0eTgzTHNtcjl4a1Uwd2lUc0gzdXRvbisKYzJGeXMyZy9jNXRwUUxXSDZUZFczZ01OWjhMTk5BNDgzdkE1NEFZeG1jbWJzeklCYnhwekVZRE1kT0FQSFRqagowaUpZei9Ra0ZveThuSFFUNk9Yd0xjQk9iRmJnQktNdlRQRGNFNjZ0YWNMdUYrWXMxVFRqYmJRc1RqNytUaUVGCkN1WnJzam44U1l3czRaMlJ6bE9na3prem9FdHZCY3hwZXhDQUNkZ2ZyR3dBd3ZNVTQyS2hxeXg4bHptQm1HMWIKZ3R4MUNQQW12TjUxd05UUjVvL1JMWURQb2Nhc1dPMU9tT0lLQmplKzhHTGFNMnFqcmkyb3p6YTNoMERnekF5OQpQL0h0dGNuZ042WlZCcTYyU2gyR3hZOGxaL2Zod0N6R2w3TDlzWkk5TDdBUG81bnZRVHF2TlBEbUVnMD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  namespace: a3ViZWFwcHM=
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklpMTRTelJ0UkhoR2RVTXlkbHBFYlZGRldWOXNVMDB4Y0RKVlRXc3liSGR5ZVdndFpscE1aM2hqY1VFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUpyZFdKbFlYQndjeUlzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUpyZFdKbFlYQndjeTFwYm5SbGNtNWhiQzFoY0hCeVpYQnZjMmwwYjNKNUxXcHZZaTF3YjNOMGRYQm5jbUZrWlMxMGIydGxiaTB5Tkd0dVlpSXNJbXQxWW1WeWJtVjBaWE11YVc4dmMyVnlkbWxqWldGalkyOTFiblF2YzJWeWRtbGpaUzFoWTJOdmRXNTBMbTVoYldVaU9pSnJkV0psWVhCd2N5MXBiblJsY201aGJDMWhjSEJ5WlhCdmMybDBiM0o1TFdwdllpMXdiM04wZFhCbmNtRmtaU0lzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVnlkbWxqWlMxaFkyTnZkVzUwTG5WcFpDSTZJbUl6TVRVeFpqWXdMVEJrTmpRdE5HRTROUzA1TUdSbUxUWTBPR1l4TkRka01EQTBNeUlzSW5OMVlpSTZJbk41YzNSbGJUcHpaWEoyYVdObFlXTmpiM1Z1ZERwcmRXSmxZWEJ3Y3pwcmRXSmxZWEJ3Y3kxcGJuUmxjbTVoYkMxaGNIQnlaWEJ2YzJsMGIzSjVMV3B2WWkxd2IzTjBkWEJuY21Ga1pTSjkuVWkxNFhWUVZhUVloZmVpSE5PQUZ3RjJ3WHJZUFF0RFBMbXZEQnZvbGd5c0lSLWRua2FremxTNl9UUGJpZHhJZllxOGp1WGVqSWxudV9MQUpVQjVRdHJsM0dOMFhlTXpFbnBSa2RZb1RCQzFvT2hTZTNpMFBaQ1ZkYkdjbnJQRzFIV0hNcTgwYm55elkyTFdqTXc3c1JZMjJqNXNIWS03MUdQWDZ3dnhkNXhPWG5XbEdoa1JUS3BYTXRSRFZTV1F3RElXbm1wenhpNER3UFI5WTRzOTQ3czhieDhpR2FwOU1qVTFJX0JySW90U1p3cHZQY25EWVlxaUtxVlE4YjJrWkltbnh5bUg3cGRxMG01bFpGVlpESlAzMlg4TUVlRmw3LTdUTDFEbVhaa1NlcUYwU2dUUWV6V192UUtKX1RmOXc1cllIX3hBSjlnbTdJWlpwZW5mVEJB
+type: kubernetes.io/service-account-token
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: kubeapps-internal-tiller-proxy-token-8bj9f
+  namespace: kubeapps
+  annotations:
+    kubernetes.io/service-account.name: kubeapps-internal-tiller-proxy
+    kubernetes.io/service-account.uid: 6ae70441-a190-4488-9596-c3c865a95e21
+  managedFields:
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-26T07:16:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:ca.crt': {}
+          'f:namespace': {}
+          'f:token': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubernetes.io/service-account.name': {}
+            'f:kubernetes.io/service-account.uid': {}
+        'f:type': {}
+data:
+  ca.crt: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01EZ3hPREF6TVRZek5sb1hEVE13TURneE5qQXpNVFl6Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTURqCi9idld2NHl3cEZwazErT0ZTVFhmNE9wSUoxNXdhNVZuSURYN2x4MHlqdjJlcll3aUVVZ0gwWDdCSlh3TTlpNG4KeVphSHNtcnY0RGRkekNxS25jSlZBanRQTk9kemNOd1IxS0twY2JaNzNWODdZeDNNSVZaZi9vU0tLdDcvLzNwSwp1dWxmWGtabU5KRktYQW96QTNyZjg5bWtpZVpRRlgwN0V1K2VSNDdweGkzMTNkTnJQT0xXSlhVd1VhVDhKT2YrCi9DWDZxOW1vQ01CVnR5eUY2UkxoaGp0VG9wdnZrSWlveXNTbTByNkNiejBYc0RwUlBkZUtHWXU0WjVYSlVrcFgKZ3FNUDh4RktsLzJhWERLeng4ZGdjckk5V0h3UXR3MmtXK3ZGSHN0RnRwdG1OdFExN01jaGJERHJDd00rcFhVeAovbFE2RWE4ZkIxckM4c09WR1U4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGeVI0eTgzTHNtcjl4a1Uwd2lUc0gzdXRvbisKYzJGeXMyZy9jNXRwUUxXSDZUZFczZ01OWjhMTk5BNDgzdkE1NEFZeG1jbWJzeklCYnhwekVZRE1kT0FQSFRqagowaUpZei9Ra0ZveThuSFFUNk9Yd0xjQk9iRmJnQktNdlRQRGNFNjZ0YWNMdUYrWXMxVFRqYmJRc1RqNytUaUVGCkN1WnJzam44U1l3czRaMlJ6bE9na3prem9FdHZCY3hwZXhDQUNkZ2ZyR3dBd3ZNVTQyS2hxeXg4bHptQm1HMWIKZ3R4MUNQQW12TjUxd05UUjVvL1JMWURQb2Nhc1dPMU9tT0lLQmplKzhHTGFNMnFqcmkyb3p6YTNoMERnekF5OQpQL0h0dGNuZ042WlZCcTYyU2gyR3hZOGxaL2Zod0N6R2w3TDlzWkk5TDdBUG81bnZRVHF2TlBEbUVnMD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  namespace: a3ViZWFwcHM=
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklpMTRTelJ0UkhoR2RVTXlkbHBFYlZGRldWOXNVMDB4Y0RKVlRXc3liSGR5ZVdndFpscE1aM2hqY1VFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUpyZFdKbFlYQndjeUlzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUpyZFdKbFlYQndjeTFwYm5SbGNtNWhiQzEwYVd4c1pYSXRjSEp2ZUhrdGRHOXJaVzR0T0dKcU9XWWlMQ0pyZFdKbGNtNWxkR1Z6TG1sdkwzTmxjblpwWTJWaFkyTnZkVzUwTDNObGNuWnBZMlV0WVdOamIzVnVkQzV1WVcxbElqb2lhM1ZpWldGd2NITXRhVzUwWlhKdVlXd3RkR2xzYkdWeUxYQnliM2g1SWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXpaWEoyYVdObExXRmpZMjkxYm5RdWRXbGtJam9pTm1GbE56QTBOREV0WVRFNU1DMDBORGc0TFRrMU9UWXRZek5qT0RZMVlUazFaVEl4SWl3aWMzVmlJam9pYzNsemRHVnRPbk5sY25acFkyVmhZMk52ZFc1ME9tdDFZbVZoY0hCek9tdDFZbVZoY0hCekxXbHVkR1Z5Ym1Gc0xYUnBiR3hsY2kxd2NtOTRlU0o5LlltRkFqVDg3N0wtOHV0OXBFM1J1TXA4MzVpTHVCSWdiUWp4YXlHWHdONERwNmxYc3NHaUZlUVRtVTg2ejBWZTNsZjcyejlNdFhTeWptQUhBSXo3MW5YUXV1NzFuVXg3Tl9YYVMteUdvMkxYOFhKc01oN3Ywa0N2SEt2ODRmSjBFbU9DSE1VOUlsUU9hcUZkd1hoVi1Ub0oyTlhvTVo2RlpXOG9YMWNVOUIxdks4eW9WWHdVanR2N3F0Q1J0U3VPbmpHcUlROW5aS3M1bnNXelVtVjNGOG9mQjhuRnp5emVxOHZyRlFrc0FiUmh3OUd1Q3lsSl9zM3QxeE1CalhrVkViWnJiRG41dFBtQ2JFcnd0SVRLNzFTV195YXA0YmhfcTZ1bUxBNEpteTUtUXM3NDlCYkVNaTMwcjVPaXdjdTdOcDdOVDRQd2VpelFxajAzYjdCdy1Zdw==
+type: kubernetes.io/service-account-token
+kind: Secret
+apiVersion: v1
+
