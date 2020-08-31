@@ -1,0 +1,1758 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: fastcfs
+  annotations:
+    k8s.kuboard.cn/workload: fastcfs
+    deployment.kubernetes.io/revision: '2'
+    k8s.kuboard.cn/ingress: 'false'
+    k8s.kuboard.cn/service: none
+  labels:
+    k8s.kuboard.cn/layer: ''
+    k8s.kuboard.cn/name: fastcfs
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: ''
+      k8s.kuboard.cn/name: fastcfs
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: ''
+        k8s.kuboard.cn/name: fastcfs
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'centos:7.8.2003'
+          imagePullPolicy: Always
+          name: fastcfs
+          volumeMounts: []
+          command:
+            - /bin/bash
+            - '-ce'
+            - tail -f /dev/null
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: polyaxon
+  name: gateway-base-php74
+  annotations:
+    k8s.kuboard.cn/workload: gateway-base-php74
+    deprecated.daemonset.template.generation: '4'
+    k8s.kuboard.cn/ingress: 'false'
+    k8s.kuboard.cn/service: none
+  labels:
+    k8s.kuboard.cn/layer: gateway
+    k8s.kuboard.cn/name: gateway-base-php74
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: gateway
+      k8s.kuboard.cn/name: gateway-base-php74
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: gateway
+        k8s.kuboard.cn/name: gateway-base-php74
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets:
+        - name: hub.suomitek.com
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'hub.suomitek.com:8002/web/base-php74'
+          imagePullPolicy: Always
+          name: base-php74
+          volumeMounts: []
+          command:
+            - /usr/sbin/init
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          securityContext:
+            privileged: true
+            seLinuxOptions: {}
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-api
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-api
+    chart: polyaxon-1.1.7
+    checksum/common-config: 1eeebe21fd0befc6f2928ef17bee4a1578348e25a062ab0b0c81675d9a0cc327
+    checksum/platform-config: feaaa6587f0a5b2db60dd1701689cb0a51991afd91b50de7d891118c4ed9dcce
+    checksum/platform-secrets: 9618a63d3d38cc235510202175e86945f033aca7b42df9c221482efc4cca4c8b
+    checksum/proxies-config: 42f7df530025edb942951083fd2bff6256e7fc4eea87a8263f3dfd08e6a5fa08
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-api
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: polyaxon-polyaxon-api
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: polyaxon-polyaxon-api
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - polyaxon-core
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      serviceAccountName: polyaxon-polyaxon-agent-sa
+      initContainers: []
+      containers:
+        - image: 'polyaxon/polyaxon-api:1.1.7'
+          imagePullPolicy: Always
+          name: polyaxon-api
+          volumeMounts: []
+          resources:
+            requests:
+              cpu: 128m
+              memory: 300Mi
+            limits:
+          env:
+            - name: POLYAXON_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: polyaxon-postgresql
+                  key: postgresql-password
+          envFrom:
+            - configMapRef:
+                name: polyaxon-polyaxon-config
+            - secretRef:
+                name: polyaxon-polyaxon-platform-secret
+            - configMapRef:
+                name: polyaxon-polyaxon-platform-config
+            - configMapRef:
+                name: polyaxon-polyaxon-agent-config
+            - configMapRef:
+                name: polyaxon-polyaxon-proxies-config
+          readinessProbe:
+            httpGet:
+              path: /healthz/
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 2
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz/
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 2
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 10
+          lifecycle: {}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-api
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-api
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-api
+spec:
+  selector:
+    app.kubernetes.io/name: polyaxon-polyaxon-api
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: api
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-gateway
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-gateway
+    chart: polyaxon-1.1.7
+    checksum/common-config: 1eeebe21fd0befc6f2928ef17bee4a1578348e25a062ab0b0c81675d9a0cc327
+    checksum/proxies-config: 42f7df530025edb942951083fd2bff6256e7fc4eea87a8263f3dfd08e6a5fa08
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-gateway
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: polyaxon-polyaxon-gateway
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: polyaxon-polyaxon-gateway
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - polyaxon-core
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'polyaxon/polyaxon-gateway:1.1.7'
+          imagePullPolicy: Always
+          name: polyaxon-gateway
+          volumeMounts: []
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+            limits:
+          env: []
+          envFrom:
+            - configMapRef:
+                name: polyaxon-polyaxon-config
+            - configMapRef:
+                name: polyaxon-polyaxon-proxies-config
+          readinessProbe:
+            httpGet:
+              path: /healthz/
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 2
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz/
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 2
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 10
+          lifecycle: {}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-gateway
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-gateway
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: polyaxon-polyaxon-gateway
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: gateway
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-operator
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-operator
+    chart: polyaxon-1.1.7
+    checksum/agent-config: dfad8716cefc60062f4ccaf1fa3434d903ebb4fae6f6c41020e1f110be5043e0
+    checksum/agent-secrets: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+    checksum/common-config: 1eeebe21fd0befc6f2928ef17bee4a1578348e25a062ab0b0c81675d9a0cc327
+    checksum/proxies-config: 42f7df530025edb942951083fd2bff6256e7fc4eea87a8263f3dfd08e6a5fa08
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: none
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-operator
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: polyaxon-polyaxon-operator
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: polyaxon-polyaxon-operator
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - polyaxon-core
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      serviceAccountName: polyaxon-polyaxon-operator-sa
+      initContainers: []
+      containers:
+        - image: 'polyaxon/polyaxon-operator:1.1.7'
+          imagePullPolicy: Always
+          name: polyaxon-operator
+          volumeMounts: []
+          command:
+            - /manager
+          args:
+            - '--enable-leader-election'
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+            limits:
+          env: []
+          envFrom:
+            - configMapRef:
+                name: polyaxon-polyaxon-agent-config
+            - configMapRef:
+                name: polyaxon-polyaxon-config
+            - configMapRef:
+                name: polyaxon-polyaxon-proxies-config
+          lifecycle: {}
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 10
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-streams
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-streams
+    chart: polyaxon-1.1.7
+    checksum/agent-config: dfad8716cefc60062f4ccaf1fa3434d903ebb4fae6f6c41020e1f110be5043e0
+    checksum/agent-secrets: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+    checksum/common-config: 1eeebe21fd0befc6f2928ef17bee4a1578348e25a062ab0b0c81675d9a0cc327
+    checksum/proxies-config: 42f7df530025edb942951083fd2bff6256e7fc4eea87a8263f3dfd08e6a5fa08
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-streams
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: polyaxon-polyaxon-streams
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: polyaxon-polyaxon-streams
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - polyaxon-core
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      serviceAccountName: polyaxon-polyaxon-agent-sa
+      initContainers: []
+      containers:
+        - image: 'polyaxon/polyaxon-streams:1.1.7'
+          imagePullPolicy: Always
+          name: polyaxon-streams
+          volumeMounts:
+            - name: default-artifacts-store
+              mountPath: /artifactsStore
+          resources:
+            requests:
+              cpu: 128m
+              memory: 300Mi
+            limits:
+          env: []
+          envFrom:
+            - configMapRef:
+                name: polyaxon-polyaxon-config
+            - configMapRef:
+                name: polyaxon-polyaxon-agent-config
+          readinessProbe:
+            httpGet:
+              path: /healthz/
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 2
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz/
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 120
+            timeoutSeconds: 2
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 10
+          lifecycle: {}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+      volumes:
+        - name: default-artifacts-store
+          hostPath:
+            path: /tmp/artifactsStore
+            type: ''
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: polyaxon-polyaxon-streams
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-polyaxon-streams
+  labels:
+    app.kubernetes.io/name: polyaxon-polyaxon-streams
+spec:
+  selector:
+    app.kubernetes.io/name: polyaxon-polyaxon-streams
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: streams
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: polyaxon
+  name: polyaxon-postgresql
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-postgresql
+    k8s.kuboard.cn/service: ClusterIP
+    k8s.kuboard.cn/ingress: 'false'
+  labels:
+    app: postgresql
+    release: polyaxon
+    role: master
+spec:
+  selector:
+    matchLabels:
+      app: postgresql
+      release: polyaxon
+      role: master
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        release: polyaxon
+        role: master
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: type
+                      operator: In
+                      values:
+                        - polyaxon-core
+                topologyKey: kubernetes.io/hostname
+      securityContext:
+        fsGroup: 1001
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers:
+        - image: 'docker.io/bitnami/minideb:stretch'
+          imagePullPolicy: Always
+          name: init-chmod-data
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/postgresql
+            - name: dshm
+              mountPath: /dev/shm
+          command:
+            - /bin/sh
+            - '-c'
+            - >
+              mkdir -p /bitnami/postgresql/data
+
+              chmod 700 /bitnami/postgresql/data
+
+              find /bitnami/postgresql -mindepth 0 -maxdepth 1 -not -name
+              ".snapshot" -not -name "lost+found" | \
+                xargs chown -R 1001:1001
+              chmod -R 777 /dev/shm
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+          env: []
+          securityContext:
+            runAsUser: 0
+      containers:
+        - image: 'docker.io/bitnami/postgresql:11.6.0-debian-10-r5'
+          imagePullPolicy: IfNotPresent
+          name: polyaxon-postgresql
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+          env:
+            - name: BITNAMI_DEBUG
+              value: 'false'
+            - name: POSTGRESQL_PORT_NUMBER
+              value: '5432'
+            - name: POSTGRESQL_VOLUME_DIR
+              value: /bitnami/postgresql
+            - name: PGDATA
+              value: /bitnami/postgresql/data
+            - name: POSTGRES_USER
+              value: polyaxon
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: polyaxon-postgresql
+                  key: postgresql-password
+            - name: POSTGRES_DB
+              value: polyaxon
+            - name: POSTGRESQL_ENABLE_LDAP
+              value: 'no'
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - '-c'
+                - '-e'
+                - >
+                  exec pg_isready -U "polyaxon" -d "polyaxon" -h 127.0.0.1 -p
+                  5432
+
+                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f
+                  /bitnami/postgresql/.initialized ]
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - '-c'
+                - >-
+                  exec pg_isready -U "polyaxon" -d "polyaxon" -h 127.0.0.1 -p
+                  5432
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          lifecycle: {}
+          securityContext:
+            runAsUser: 1001
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+      volumes:
+        - name: dshm
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options: []
+      terminationGracePeriodSeconds: 30
+  replicas: 1
+  volumeClaimTemplates: []
+  serviceName: polyaxon-postgresql-headless
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: polyaxon-postgresql
+  annotations:
+    k8s.kuboard.cn/workload: polyaxon-postgresql
+  labels:
+    app: postgresql
+    release: polyaxon
+    role: master
+spec:
+  selector:
+    app: postgresql
+    release: polyaxon
+    role: master
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: .nan
+      protocol: TCP
+      name: tcp-postgresql
+      nodePort: 0
+  sessionAffinity: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-chineseocr
+  annotations:
+    k8s.kuboard.cn/workload: web-chineseocr
+    deployment.kubernetes.io/revision: '5'
+    k8s.kuboard.cn/ingress: 'true'
+    k8s.kuboard.cn/service: NodePort
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-chineseocr
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-chineseocr
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-chineseocr
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets:
+        - name: hub.suomitek.com
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'hub.suomitek.com:8002/ai/chineseocr:latest'
+          imagePullPolicy: Always
+          name: chineseocr
+          volumeMounts: []
+          command:
+            - /bin/bash
+            - '-ce'
+            - /root/anaconda3/bin/python app.py
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          ports:
+            - hostPort: 8080
+              containerPort: 8080
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      nodeName: h3.corp.suomitek.com
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: web-chineseocr
+  annotations:
+    k8s.kuboard.cn/workload: web-chineseocr
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-chineseocr
+spec:
+  selector:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-chineseocr
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: bmbhcp
+      nodePort: 30972
+  sessionAffinity: None
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  namespace: polyaxon
+  name: web-chineseocr
+  annotations:
+    k8s.kuboard.cn/workload: web-chineseocr
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-chineseocr
+spec:
+  rules:
+    - host: kube-ocr.yongchehang.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: web-chineseocr
+              servicePort: bmbhcp
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-jenkins
+  annotations:
+    k8s.kuboard.cn/workload: web-jenkins
+    deployment.kubernetes.io/revision: '3'
+    k8s.kuboard.cn/ingress: 'false'
+    k8s.kuboard.cn/service: none
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-jenkins
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-jenkins
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-jenkins
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: jenkins
+          imagePullPolicy: Always
+          name: jenkins
+          volumeMounts: []
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      nodeName: h3.corp.suomitek.com
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-nginx
+  annotations:
+    k8s.kuboard.cn/workload: web-nginx
+    deployment.kubernetes.io/revision: '1'
+    k8s.kuboard.cn/ingress: 'false'
+    k8s.kuboard.cn/service: none
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-nginx
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-nginx
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-nginx
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'nginx:1.17.9'
+          imagePullPolicy: Always
+          name: nginx
+          volumeMounts: []
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-notebook
+  annotations:
+    k8s.kuboard.cn/workload: web-notebook
+    deployment.kubernetes.io/revision: '2'
+    k8s.kuboard.cn/ingress: 'true'
+    k8s.kuboard.cn/service: NodePort
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-notebook
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-notebook
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets: []
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: jupyter/tensorflow-notebook
+          imagePullPolicy: Always
+          name: tensorflow-notebook
+          volumeMounts: []
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          ports:
+            - hostPort: 8888
+              containerPort: 8888
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      nodeName: h1.corp.suomitek.com
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: web-notebook
+  annotations:
+    k8s.kuboard.cn/workload: web-notebook
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+spec:
+  selector:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+  type: NodePort
+  ports:
+    - port: 8888
+      targetPort: 8888
+      protocol: TCP
+      name: rerrks
+      nodePort: 31778
+  sessionAffinity: None
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  namespace: polyaxon
+  name: web-notebook
+  annotations:
+    k8s.kuboard.cn/workload: web-notebook
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-notebook
+spec:
+  rules:
+    - host: kube-notebook.yongchehang.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: web-notebook
+              servicePort: rerrks
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: polyaxon
+  name: web-unicde
+  annotations:
+    k8s.kuboard.cn/workload: web-unicde
+    deployment.kubernetes.io/revision: '2'
+    k8s.kuboard.cn/ingress: 'true'
+    k8s.kuboard.cn/service: NodePort
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-unicde
+spec:
+  selector:
+    matchLabels:
+      k8s.kuboard.cn/layer: web
+      k8s.kuboard.cn/name: web-unicde
+  revisionHistoryLimit: 10
+  template:
+    metadata:
+      labels:
+        k8s.kuboard.cn/layer: web
+        k8s.kuboard.cn/name: web-unicde
+    spec:
+      securityContext:
+        seLinuxOptions: {}
+      imagePullSecrets:
+        - name: hub.suomitek.com
+      restartPolicy: Always
+      initContainers: []
+      containers:
+        - image: 'hub.suomitek.com:8002/web/unicde:latest'
+          imagePullPolicy: Always
+          name: unicde1
+          volumeMounts: []
+          resources:
+            limits:
+            requests:
+          env: []
+          lifecycle: {}
+          securityContext:
+            privileged: true
+            seLinuxOptions: {}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+      volumes: []
+      dnsPolicy: ClusterFirst
+      dnsConfig: {}
+      terminationGracePeriodSeconds: 30
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: polyaxon
+  name: web-unicde
+  annotations:
+    k8s.kuboard.cn/workload: web-unicde
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-unicde
+spec:
+  selector:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-unicde
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: i3y6ag
+      nodePort: 31757
+  sessionAffinity: None
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  namespace: polyaxon
+  name: web-unicde
+  annotations:
+    k8s.kuboard.cn/workload: web-unicde
+  labels:
+    k8s.kuboard.cn/layer: web
+    k8s.kuboard.cn/name: web-unicde
+spec:
+  rules:
+    - host: kube-unicde.yongchehang.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: web-unicde
+              servicePort: i3y6ag
+
+---
+metadata:
+  name: controller-leader-election-helper
+  namespace: polyaxon
+  annotations:
+    control-plane.alpha.kubernetes.io/leader: >-
+      {"holderIdentity":"polyaxon-polyaxon-operator-7f48b54676-5s4v8_3a74bb07-3043-4c31-b03e-0748798877ac","leaseDurationSeconds":15,"acquireTime":"2020-08-28T09:56:12Z","renewTime":"2020-08-31T04:58:56Z","leaderTransitions":8}
+  managedFields:
+    - manager: manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-31T04:58:56Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:control-plane.alpha.kubernetes.io/leader': {}
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-agent-config
+  namespace: polyaxon
+  labels:
+    app.kubernetes.io/component: polyaxon-config
+    app.kubernetes.io/instance: polyaxon-1.1.7
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/name: polyaxon-polyaxon-agent-config
+    app.kubernetes.io/part-of: polyaxon-core
+    app.kubernetes.io/version: 1.1.7
+    heritage: Tiller
+    release: polyaxon
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:POLYAXON_AGENT_ARTIFACTS_STORE': {}
+          'f:POLYAXON_AGENT_INIT': {}
+          'f:POLYAXON_AGENT_RUNS_SA': {}
+          'f:POLYAXON_AGENT_SIDECAR': {}
+          'f:POLYAXON_K8S_IN_CLUSTER': {}
+          'f:POLYAXON_SET_AGENT': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/component': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:app.kubernetes.io/part-of': {}
+            'f:app.kubernetes.io/version': {}
+            'f:heritage': {}
+            'f:release': {}
+data:
+  POLYAXON_AGENT_ARTIFACTS_STORE: >-
+    {"kind":"host_path","name":"default-artifacts-store","schema":{"hostPath":"/tmp/artifactsStore","mountPath":"/artifactsStore"}}
+  POLYAXON_AGENT_INIT: >-
+    {"image":"polyaxon/polyaxon-init","imagePullPolicy":"Always","imageTag":"1.1.7","resources":{"limits":{"cpu":"1000m","memory":"2000Mi"},"requests":{"cpu":"100m","memory":"100Mi"}}}
+  POLYAXON_AGENT_RUNS_SA: polyaxon-polyaxon-runs-sa
+  POLYAXON_AGENT_SIDECAR: >-
+    {"image":"polyaxon/polyaxon-sidecar","imagePullPolicy":"Always","imageTag":"1.1.7","resources":{"limits":{"cpu":"1000m","memory":"2000Mi"},"requests":{"cpu":"100m","memory":"100Mi"}},"sleepInterval":10,"syncInterval":10}
+  POLYAXON_K8S_IN_CLUSTER: 'true'
+  POLYAXON_SET_AGENT: 'true'
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-config
+  namespace: polyaxon
+  labels:
+    app.kubernetes.io/component: polyaxon-config
+    app.kubernetes.io/instance: polyaxon-1.1.7
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/name: polyaxon-polyaxon-config
+    app.kubernetes.io/part-of: polyaxon-core
+    app.kubernetes.io/version: 1.1.7
+    heritage: Tiller
+    release: polyaxon
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:POLYAXON_CHART_REVISION': {}
+          'f:POLYAXON_CHART_VERSION': {}
+          'f:POLYAXON_DEPLOYMENT_TYPE': {}
+          'f:POLYAXON_ENVIRONMENT': {}
+          'f:POLYAXON_K8S_APP_SECRET_NAME': {}
+          'f:POLYAXON_K8S_NAMESPACE': {}
+          'f:POLYAXON_LOG_LEVEL': {}
+          'f:POLYAXON_PLATFORM_HOST': {}
+          'f:POLYAXON_TIME_ZONE': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/component': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:app.kubernetes.io/part-of': {}
+            'f:app.kubernetes.io/version': {}
+            'f:heritage': {}
+            'f:release': {}
+data:
+  POLYAXON_CHART_REVISION: '1'
+  POLYAXON_CHART_VERSION: 1.1.7
+  POLYAXON_DEPLOYMENT_TYPE: kubernetes
+  POLYAXON_ENVIRONMENT: production
+  POLYAXON_K8S_APP_SECRET_NAME: polyaxon-polyaxon-platform-secret
+  POLYAXON_K8S_NAMESPACE: polyaxon
+  POLYAXON_LOG_LEVEL: WARN
+  POLYAXON_PLATFORM_HOST: 'http://polyaxon-polyaxon-gateway:80'
+  POLYAXON_TIME_ZONE: UTC
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-platform-config
+  namespace: polyaxon
+  labels:
+    app.kubernetes.io/component: polyaxon-config
+    app.kubernetes.io/instance: polyaxon-1.1.7
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/name: polyaxon-polyaxon-platform-config
+    app.kubernetes.io/part-of: polyaxon-core
+    app.kubernetes.io/version: 1.1.7
+    heritage: Tiller
+    release: polyaxon
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:POLYAXON_ADMIN_MAIL': {}
+          'f:POLYAXON_ADMIN_NAME': {}
+          'f:POLYAXON_DB_CONN_MAX_AGE': {}
+          'f:POLYAXON_DB_HOST': {}
+          'f:POLYAXON_DB_NAME': {}
+          'f:POLYAXON_DB_PORT': {}
+          'f:POLYAXON_DB_USER': {}
+          'f:POLYAXON_INTERVALS_COMPATIBILITY_CHECK': {}
+          'f:POLYAXON_PASSWORD_LENGTH': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/component': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:app.kubernetes.io/part-of': {}
+            'f:app.kubernetes.io/version': {}
+            'f:heritage': {}
+            'f:release': {}
+data:
+  POLYAXON_ADMIN_MAIL: root@polyaxon.local
+  POLYAXON_ADMIN_NAME: root
+  POLYAXON_DB_CONN_MAX_AGE: '60'
+  POLYAXON_DB_HOST: polyaxon-postgresql
+  POLYAXON_DB_NAME: polyaxon
+  POLYAXON_DB_PORT: '5432'
+  POLYAXON_DB_USER: polyaxon
+  POLYAXON_INTERVALS_COMPATIBILITY_CHECK: '-1'
+  POLYAXON_PASSWORD_LENGTH: '8'
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-proxies-config
+  namespace: polyaxon
+  labels:
+    app.kubernetes.io/component: polyaxon-config
+    app.kubernetes.io/instance: polyaxon-1.1.7
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/name: polyaxon-polyaxon-proxies-config
+    app.kubernetes.io/part-of: polyaxon-core
+    app.kubernetes.io/version: 1.1.7
+    heritage: Tiller
+    release: polyaxon
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:POLYAXON_API_HOST': {}
+          'f:POLYAXON_DNS_USE_RESOLVER': {}
+          'f:POLYAXON_PROXY_API_HOST': {}
+          'f:POLYAXON_PROXY_API_PORT': {}
+          'f:POLYAXON_PROXY_API_USE_RESOLVER': {}
+          'f:POLYAXON_PROXY_STREAMS_HOST': {}
+          'f:POLYAXON_PROXY_STREAMS_PORT': {}
+          'f:POLYAXON_SSL_ENABLED': {}
+          'f:POLYAXON_SSL_REDIRECT_ENABLED': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/component': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:app.kubernetes.io/part-of': {}
+            'f:app.kubernetes.io/version': {}
+            'f:heritage': {}
+            'f:release': {}
+data:
+  POLYAXON_API_HOST: 'http://polyaxon-polyaxon-gateway:80'
+  POLYAXON_DNS_USE_RESOLVER: 'true'
+  POLYAXON_PROXY_API_HOST: polyaxon-polyaxon-api
+  POLYAXON_PROXY_API_PORT: '80'
+  POLYAXON_PROXY_API_USE_RESOLVER: 'true'
+  POLYAXON_PROXY_STREAMS_HOST: polyaxon-polyaxon-streams
+  POLYAXON_PROXY_STREAMS_PORT: '80'
+  POLYAXON_SSL_ENABLED: 'false'
+  POLYAXON_SSL_REDIRECT_ENABLED: 'false'
+kind: ConfigMap
+apiVersion: v1
+
+---
+metadata:
+  name: hub.suomitek.com
+  namespace: polyaxon
+  managedFields:
+    - manager: Mozilla
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-23T17:29:52Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:.dockerconfigjson': {}
+        'f:type': {}
+data:
+  .dockerconfigjson: >-
+    eyJhdXRocyI6eyJodHRwczovL2h1Yi5zdW9taXRlay5jb206ODAwMi8iOnsidXNlcm5hbWUiOiJzdW9taXRlayIsInBhc3N3b3JkIjoiU3VvbWl0ZWsxMjMiLCJhdXRoIjoiYzNWdmJXbDBaV3M2VTNWdmJXbDBaV3N4TWpNPSJ9fX0=
+type: kubernetes.io/dockerconfigjson
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: istio.default
+  namespace: polyaxon
+  annotations:
+    istio.io/service-account.name: default
+  managedFields:
+    - manager: istio_ca
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-30T03:10:16Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:cert-chain.pem': {}
+          'f:key.pem': {}
+          'f:root-cert.pem': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:istio.io/service-account.name': {}
+        'f:type': {}
+data:
+  cert-chain.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURIakNDQWdhZ0F3SUJBZ0lRVW52S2dBS1ZzMndldC9Hd2VzK3gwVEFOQmdrcWhraUc5dzBCQVFzRkFEQVkKTVJZd0ZBWURWUVFLRXcxamJIVnpkR1Z5TG14dlkyRnNNQjRYRFRJd01EZ3pNREF6TVRBeE5sb1hEVEl3TVRFeQpPREF6TVRBeE5sb3dBRENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFOU01RVkVSCm1ONzVqM0Rtc0pvYm95dldDWGJscVNFNjRwcjdGbklMM2hZVFczZTVGbGZ4R0ZYeWFuRm5JenN1WUczS2hpSTQKWEQvQVFHV3JpTkpFTy9qcWFSL3A0cGtJYkZkN0lhbjExVU11Y2tabStGa2s2djVFYkxPa2hYQnE1M3luY2Z1awpGcy9ac0RNdVhpeXhEYmhmbkY0ZUdmcURlUDJFZlRlTnVuTjA0WG5CdFNLQ2REUDVuT0h6REtCUWpWRGxnWEpTCkJTdkY0MHJPdDI4cU1tUnJralRWT2gxTUZUd1E3K0FwZEx6UWhsVlhnWTlkZ3RmL2tUUU9NMGhiYXVlK3krQlYKYndiV1pmWDVBTzVGcCtxRjZJVUFBcHU5Q2tIVVhNN1k0NXpTLzd2QTFWTC9NOG5uTUM5L0dNTHp5MGRVS0tSZgpEWmlWeFREWG5ORU5XQU1DQXdFQUFhTjhNSG93RGdZRFZSMFBBUUgvQkFRREFnV2dNQjBHQTFVZEpRUVdNQlFHCkNDc0dBUVVGQndNQkJnZ3JCZ0VGQlFjREFqQU1CZ05WSFJNQkFmOEVBakFBTURzR0ExVWRFUUVCL3dReE1DK0cKTFhOd2FXWm1aVG92TDJOc2RYTjBaWEl1Ykc5allXd3Zibk12Y0c5c2VXRjRiMjR2YzJFdlpHVm1ZWFZzZERBTgpCZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUF6NWhudFhVT3pwN3J1UWtIRStKSlhhcm4xd3BJSi9UcnRVUW5KSWcrCnpLTDJremVKTEQ1SkM0WmE4Q2Y3NmQrSWU0N0thYmcxWmNHRVRLM0RkMWdWU20wVkV0QVhGdndaVjJyUmJMcVAKZHRWcEtjSUNESmZyNE9CajNjZEVvc0thQlpsc1djbGVxNkxkQkJSNm5zMVZaNTF0VzJZTS9aT1ZzdmFrby9acQp1cW9YVTMzYnlnNVpFMWI4RWMvd0xmTjFDSERBUU9ZYjlReTlDbk5tcGFPa0ZSVXVtU3UvcjdoM2tkb2o5UFBjCll1Y0JmMVYyb1E0L2Y2ZWdUaTBhSUFJVFR1UUdMNW9ZMFFoTC9FL2lBdWZBZkdYWGt5RnZjSW8zNVhxWkJRMFgKZVRCVkk3VXN6enZuNlIrVkorY1RPTER4SmRTb2YrRjY3RFU3V1VrQitmbE9vQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  key.pem: >-
+    LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBMUl4QlVSR1kzdm1QY09hd21odWpLOVlKZHVXcElUcmltdnNXY2d2ZUZoTmJkN2tXClYvRVlWZkpxY1djak95NWdiY3FHSWpoY1A4QkFaYXVJMGtRNytPcHBIK25pbVFoc1Yzc2hxZlhWUXk1eVJtYjQKV1NUcS9rUnNzNlNGY0dybmZLZHgrNlFXejltd015NWVMTEVOdUYrY1hoNForb040L1lSOU40MjZjM1RoZWNHMQpJb0owTS9tYzRmTU1vRkNOVU9XQmNsSUZLOFhqU3M2M2J5b3laR3VTTk5VNkhVd1ZQQkR2NENsMHZOQ0dWVmVCCmoxMkMxLytSTkE0elNGdHE1NzdMNEZWdkJ0Wmw5ZmtBN2tXbjZvWG9oUUFDbTcwS1FkUmN6dGpqbk5ML3U4RFYKVXY4enllY3dMMzhZd3ZQTFIxUW9wRjhObUpYRk1OZWMwUTFZQXdJREFRQUJBb0lCQUJMc2hlZzg0OXArWjdvSwpvQkNvZzBlazMrVFpIOHpZbkZKbUpxSnkwZ3d2SHdheTBQMTFkdEE0TENmNm9kVmtGS3ZSeTAyQ3JSdno5d2ZXClZQRTdxQWRLZjUrYXlGVU52ZSt3QTloSkRmclVTTkpoMnB5OVA3cnh4cWZiN3hHS1F5QURISS9tRlMzZVdPVEYKclJiWGtMd29yeGhtSDdRQlBxVjd4VlpMNVJ6Z1VucGdBUCtZdTAreDNjZmJqaWZPWXI4RkgyT1h1Y2xrZGt1bwpxZUJncnBPRFBWQXZxeE5kRFRkM0tGcW9CeDdBRCt2RnFoTzVsVStjMnJoemxJcG1rbGpDM3pYZ3hQNVNIUkl5CjhTYVNCT1VWR0tjaXBMZ2JkR1hSVjFabDJ0WjJYVCt0Ym5UMWF5ZVh4RlJqMTE3UXExWkxRL2xzdHVxWElVZkkKMDRuZUM1a0NnWUVBMVRZbFN5MGhYMnBvRS8zVGNJMkJySXRHS21zdGFHNk1nTWsvVSt4dUpUdjFid0Z1YXRrbgovendyWmh3bmhUOTU1L1VrMExiMU9lamlaMk41RWpJTWxXb0g3cW5kejJxbElCdkFRU2hSdjdMRHQ1OHJ4WUZpClJtcmNJa1lpalg0QzNlS29ZbXB6cEJKVEpoZ3NlcGpjdjJ4SlV0ell0WHRnTmliektZMVVrbDBDZ1lFQS96UUQKem4xUFo0TnpqR20vRm8wd3gxb0IzSFZ2Wmo1VS9xVTdGYmpEQjMxb2RPcjN3VkFvR01qb09PcGhQT1JCdjl1NApIYUk5Sis3TXIzQm1PcXFCc2EwTE84VTdRbmFoNE14OUljNnRFMHY4QndoWUlMcGFOMlBGSjBqLy9UZ3BzS2RGCkJLTlJtWmFMazBhUkQxUVRMY1Z1SnZWWGozZjdGTnNIK1MzTnJkOENnWUEzWmE0aTdrTHhpN0FuSVpoQ2NrSHoKRnV6UU1MREhwWkdVRkxZRGxEYTZMZTREUFpmMjR4MWxUN2ptK3dHNXVWaHZVRjZVYkRVaktzTklvYXZmY21tYQptTVllMkx2dEhJUnk1MEw0cXdVeWpid1VoYUxWMmx3eWQ2bGlybDVqN1EzSm9RNm5JNG1RWThKKzcyRC9LYUNSCmpBMHhIbmlnRHNKY3o1bjJmZVl2Y1FLQmdEL2pycnhJSk5QZVZkUW1PUitWTTB3RkhZZ3FvanZ2aU9uRFJkcDMKU2VRYklrWjYrSkdkMXB2MTJDVS9rQjVsYW94MG5sQlU2SWlSd1E1K3ppa0x2TEpWaHdWc3FCeEloTmc1ZVc0NApScDRaSEx4SiszNGVDUzNxdlZYTGNjTGNCNXZoRkdkSDE4cmlwSWkzVnVPR2dkS29wWjM5Ti9HRDhRalVtTmRwCi94N3pBb0dCQU5IN000VktEbUQvOTFkb1hyUzBFSDVVNFljdGpXMFdHbXZvb05YOHdTbjNLb0g2dnl6ay9yNGcKdCtqRElSUnd4YzBPNHA3dFFIZzVDUEhJMXp3OGZueEF4a0F0endVeDFHaDV4QlNoOE9pMlIrQmRWY04wVjB1WApWTTVVOEFaUUFtMjNTeUoyekgyWHFKSTFmeWVuWVJpTWtaYUM1dkhxc1RXRWp6Wk93TlpyCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+  root-cert.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMzakNDQWNhZ0F3SUJBZ0lSQUpWY01yV2FZL3ViS004VmpDZk5VVkV3RFFZSktvWklodmNOQVFFTEJRQXcKR0RFV01CUUdBMVVFQ2hNTlkyeDFjM1JsY2k1c2IyTmhiREFlRncweU1EQTRNekF3TXpFd01UUmFGdzB6TURBNApNamd3TXpFd01UUmFNQmd4RmpBVUJnTlZCQW9URFdOc2RYTjBaWEl1Ykc5allXd3dnZ0VpTUEwR0NTcUdTSWIzCkRRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRHdOMGFPVlRlUUFpcmJIdm9weVlQS1F3L3QxdE00bU9CRTVvdHUKNG12dTRWYTczY0ZFOUVpSTc4WVFSLzhTbURFc0RmWEJpdG9OVGdHZmpEWFBIbXBnVEVMalJVYlRhZWlXOVgvZAoveTMwN1QvZ25TK1FCL21FNWkzL3ROOW0zV05ZT0ZxaFZJWC9KNWxsaityODBPR251dUtBZkZvZTVrNGZ3ZmJUCnNlN0tWWHdKUUhZbnNNeGI4aHIxVURSY0F5N3I2M3FtWmw0L1ZNUWcrc0dYNEUrV1BrUG9TZko2QVF5bE5mZkUKelpLUjZVb1c2a1k0K2RiRkpyYi80TkVIbWZxTEtiZ3RCdkVHTE1hUUlrYm1rRE14UEJPYjd0V01BY1NsODNUVApGZ09TNHVpNWtnQUdJdHhBcStPN2xFSGtremtPdWdWYXlRTUVVMUNuM0g5Yk1FbGRBZ01CQUFHakl6QWhNQTRHCkExVWREd0VCL3dRRUF3SUNCREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUIKQVFCdmE2SDhWZGZXcEJsZ3RVL2ZNWTgvQUxIalFxSnFsbHJCYTN3KyszaytXVzc0Ym9Ja1JMSjBxbFlQWU0yZwptazlVaEpMNkh4MWo0OE01ODh1ZWQ5VWRrdW1qVmlacFpvaitzVW8vYUluajk5MFpFendnbm5FZ0lyYzdLNWhNCnQ3amt3Z0hNa0hSdHIwRk8zZlcwN2JNN0l5SnFVRkpiVURPaUZ4WHZVUFE4NkcrWU5HRFdSOTY4ZVFYNVFWS1oKTVVGalNJM0NCa3FoZWR3Q0h4VWZsUzV1aDVHcExtend5dnUwTlVrTmZzMzdmTlMxWU1hVHp6aGhob2FoTVJLbQp6ei9CdTdUU0s0alNBR1pTeVZYNmdzYUJwUjJQU0xqZU83SW9xcTJvempWZ29ndWhhd0Y3d091SjlxVjc0ZHhVCi9ZWkxlckNtZG9SQWhUU0Q5RENleXFDeAotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+type: istio.io/key-and-cert
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: istio.polyaxon-polyaxon-agent-sa
+  namespace: polyaxon
+  annotations:
+    istio.io/service-account.name: polyaxon-polyaxon-agent-sa
+  managedFields:
+    - manager: istio_ca
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-30T03:10:28Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:cert-chain.pem': {}
+          'f:key.pem': {}
+          'f:root-cert.pem': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:istio.io/service-account.name': {}
+        'f:type': {}
+data:
+  cert-chain.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURNekNDQWh1Z0F3SUJBZ0lRVWZFb0pjNUN1Z2puR0xoSnJ4RFYzREFOQmdrcWhraUc5dzBCQVFzRkFEQVkKTVJZd0ZBWURWUVFLRXcxamJIVnpkR1Z5TG14dlkyRnNNQjRYRFRJd01EZ3pNREF6TVRBeU9Gb1hEVEl3TVRFeQpPREF6TVRBeU9Gb3dBRENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNeVYrYXptCm50STJxVWcyUHR4TjFiZUVoYk4vOFhFMi9LOU5McFo5KzdnMXZqV3UyVHpMN3E5cVdjeWt4KzBxOTQ2VGxlYzcKbTFFWk5oUVZxU0lXSjNFVUhwRXhMYWp3aTl4TGpVSEx2ZzdtblQzcEZPQ1VNZ0MvdG5KVFVFSFIweC9MZVcxZgplMHhlblFVUmU5dzhDODhlRTZZczBHdUhHRzQyejF5ekZ4cFBnaFZGczY1Y2hWTGd5Uit2SWlUQkplQTB4d1ZvCnR0cjloTXNnWjB4aTVOUHNOKzQ2N055aU94U1pMeFp6dk1MSDBSOGFPVmJqWnNSQnVtdTQ5WnI3alZFdGl4RmIKUENEYTR1bHZyNFpjclU5SVYvdUlWT241bEpDQVZldEtPSFd4eDdINENmb3BjWWVnSXlKVGhOaFEvWnJYczJCNwpiWWtTQ1NrTEJ3bnlmQzhDQXdFQUFhT0JrRENCalRBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGxCQll3CkZBWUlLd1lCQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd1RnWURWUjBSQVFIL0JFUXcKUW9aQWMzQnBabVpsT2k4dlkyeDFjM1JsY2k1c2IyTmhiQzl1Y3k5d2IyeDVZWGh2Ymk5ellTOXdiMng1WVhodgpiaTF3YjJ4NVlYaHZiaTFoWjJWdWRDMXpZVEFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBZzM5WVRsT3krdkRICk9vWTZRc1JQeDdveTMvdUREVUFCZUFiRXhqSkRtVEdwL2xmWjV5TFV4YU10LzlXRHZxTWJzLzQ3TnN4aTdUdUUKeXd5bThpMVFzbEZrelJYZHJEWFJuMUR0RnI5MnA0bkhPS09WVVhxK2luS0V4aEpBQXlyT1JpbmFkWlFhSVJEawpmdEVlOVNNdWhLV1J2ZmpDLzVHM3pqdStmS3RRY0Y4Z3gvVFRkOE1rYzhlNXJDVDcxYmhuZmxRbm04Sjh6V3YvCjVUbVZWZUw4cTdIbjBXU3FvemcvaDRpd1FKR1VYaEV2U2RTa2dCNC9IVXQycUFtd1hpMHNmbCtkYU1KZzFXa0kKdGthYU8raUZMSGxCb0Jickt4WSt5dENYNmVuV2ltSGVyMXVlL1FWZVI0Wmh2SWpHZFRTYkhFWVgyS3hrOHZsTApxb3ZXOXJtNXBnPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  key.pem: >-
+    LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBekpYNXJPYWUwamFwU0RZKzNFM1Z0NFNGczMveGNUYjhyMDB1bG4zN3VEVytOYTdaClBNdnVyMnBaektUSDdTcjNqcE9WNXp1YlVSazJGQldwSWhZbmNSUWVrVEV0cVBDTDNFdU5RY3UrRHVhZFBla1UKNEpReUFMKzJjbE5RUWRIVEg4dDViVjk3VEY2ZEJSRjczRHdMeng0VHBpelFhNGNZYmpiUFhMTVhHaytDRlVXegpybHlGVXVESkg2OGlKTUVsNERUSEJXaTIydjJFeXlCblRHTGswK3czN2pyczNLSTdGSmt2Rm5POHdzZlJIeG81ClZ1Tm14RUc2YTdqMW12dU5VUzJMRVZzOElOcmk2Vyt2aGx5dFQwaFgrNGhVNmZtVWtJQlY2MG80ZGJISHNmZ0oKK2lseGg2QWpJbE9FMkZEOW10ZXpZSHR0aVJJSktRc0hDZko4THdJREFRQUJBb0lCQVFDSm9wUVlLQWJOTVl6dApVZUUwWVFEWXQ4VWpIMzRWUm9MMGhKNUZESGllVXptbDcvMmlFeWgreHJPbkkyeUZPQlRYeko1YXRCVW5tQ2h6CmxxYjBrYWJ6UWkvV1NobUh3RnkzVmZTd1FSdVo5cmZ1Z0xKVTdCNC90cnBOYTVOZzFJS09yMXIvbys3VlVBbWUKOFVZOHdnREgxRm92djVKdjVMRWc1S3JZbUh1QWJLeXJ6YlFoWVo3aG5JVjIrc040NjkxamNodzM1UmJSR0g2ZAo1RGtVazhoSlBOeWlqbzdBS0xZeHU4Mm40eGswZ0ZQMnprblE0bVRDZ3hOR0NFL2dyNmlyOHFhYnpqaUFTSWh0CnU1b3RpTG9kMzRBVWVVYUt1aFoyaEVyaEVhSTB2ME9BMmk1VG5BcGwvVlV3R2ZMK0ZwcW1IOVhQYmttbkdoUHkKdjhDR2U0aGhBb0dCQVBDcjY2ekVDdy9zYVZzK1BuTG9SRlYxSkd5OG8rbGhibDlIUld1YjJ3ZmlNU280WHFLTQozKzFWdmVScnE0WEt3azQ0ZlplREpEZHlGNHRTekdMdGMvSG9rQUwrd1dVdVIxS0ptUWkyK2VIWmo5WFVmT2taCmtnb3dOSmU1NnlCTS9RU0tTVVM2RCt4TzJsZHpMcnlWTFprVmlrSlZsVzJBQmZhMXlwNHcxYnpwQW9HQkFObWQKc0FIVmxGdDVTRXlMTVNZNGpnSzNhSGlhME4wdmhXcTJYWW5BN0RiWDJlTENPNDF6bGtjNmNDSlFxZklub3MwcgpJdXF3Z0Zibk1Md1hXOXRzMExsS1NZTFZMVkZwUmtja3ljWVRoZ0dZSjROODlWem5TZ3lZc2FXb3ZBaklIWkNPCjViemVCM0NFTE1UNXNLWmFiSU5USWhxTFpETWZiUnpRd2hHT0EyRlhBb0dBZG4yT09LOEVhMENQMW5aY3RLSWEKRXFEcjRBVTRCZzBNRkNpNHl2UWU4RkN5dUFDc3h3Ym9zS2JJS1EvQmtNdDB3cUlaWTJFVGthREFhcjNIRnVXbApjZko0QktGOGdkNDVDeS9uZ2x6anhnZ2hRcnV0Qys2azhoTXRzWTI5YjFlNE1tWUxFS1V5ZGJ1VXovMUxnMWxHCjY5bXBDbU9zZ0E3SjROODc5SXBDa1JFQ2dZQVpNVk1sOHpiWW5DTE5rYk9mN0I0c25GVUEyVk5pdDlTbk5QT0IKTmc5aWpmeVFidEg4SHl4L2xIbFV6NmZNKzkreUJ0TmsvZ2Z0aDVneHZqYUpJWURNWXBnK0NEWFYzZTBmNFZkbQprZTRLa3pYSDJCaURwOWIvdkZHY2p2c3R2UlVISGpQa2VJTzk5OTlDOG5FTDRSMzgyZ3Z4ckw5dDE2NkhEbmZaCkZtcTN3d0tCZ1FDT05oK1gxVlJ4YU8xaE9rM3p0dTVpUU9hZkwzZE1rZjhRSXltYU5WU2EyVmM0YTRsbzFRWUgKVGhRa25POGNQdlRGV0NrUWJobWJNbkNhRDltRG5oSS9JYVA5T2lOVlJXcXYrSGNMNXQyaUZDc1hENHo5MTQ4NwpLTDVPWUJid2ovUGFqdWV5Y2ZJaDFNWDdIN3ZKd1BJQy9yR3hFZWlHT01aaE1WMG12ajc4RUE9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+  root-cert.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMzakNDQWNhZ0F3SUJBZ0lSQUpWY01yV2FZL3ViS004VmpDZk5VVkV3RFFZSktvWklodmNOQVFFTEJRQXcKR0RFV01CUUdBMVVFQ2hNTlkyeDFjM1JsY2k1c2IyTmhiREFlRncweU1EQTRNekF3TXpFd01UUmFGdzB6TURBNApNamd3TXpFd01UUmFNQmd4RmpBVUJnTlZCQW9URFdOc2RYTjBaWEl1Ykc5allXd3dnZ0VpTUEwR0NTcUdTSWIzCkRRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRHdOMGFPVlRlUUFpcmJIdm9weVlQS1F3L3QxdE00bU9CRTVvdHUKNG12dTRWYTczY0ZFOUVpSTc4WVFSLzhTbURFc0RmWEJpdG9OVGdHZmpEWFBIbXBnVEVMalJVYlRhZWlXOVgvZAoveTMwN1QvZ25TK1FCL21FNWkzL3ROOW0zV05ZT0ZxaFZJWC9KNWxsaityODBPR251dUtBZkZvZTVrNGZ3ZmJUCnNlN0tWWHdKUUhZbnNNeGI4aHIxVURSY0F5N3I2M3FtWmw0L1ZNUWcrc0dYNEUrV1BrUG9TZko2QVF5bE5mZkUKelpLUjZVb1c2a1k0K2RiRkpyYi80TkVIbWZxTEtiZ3RCdkVHTE1hUUlrYm1rRE14UEJPYjd0V01BY1NsODNUVApGZ09TNHVpNWtnQUdJdHhBcStPN2xFSGtremtPdWdWYXlRTUVVMUNuM0g5Yk1FbGRBZ01CQUFHakl6QWhNQTRHCkExVWREd0VCL3dRRUF3SUNCREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUIKQVFCdmE2SDhWZGZXcEJsZ3RVL2ZNWTgvQUxIalFxSnFsbHJCYTN3KyszaytXVzc0Ym9Ja1JMSjBxbFlQWU0yZwptazlVaEpMNkh4MWo0OE01ODh1ZWQ5VWRrdW1qVmlacFpvaitzVW8vYUluajk5MFpFendnbm5FZ0lyYzdLNWhNCnQ3amt3Z0hNa0hSdHIwRk8zZlcwN2JNN0l5SnFVRkpiVURPaUZ4WHZVUFE4NkcrWU5HRFdSOTY4ZVFYNVFWS1oKTVVGalNJM0NCa3FoZWR3Q0h4VWZsUzV1aDVHcExtend5dnUwTlVrTmZzMzdmTlMxWU1hVHp6aGhob2FoTVJLbQp6ei9CdTdUU0s0alNBR1pTeVZYNmdzYUJwUjJQU0xqZU83SW9xcTJvempWZ29ndWhhd0Y3d091SjlxVjc0ZHhVCi9ZWkxlckNtZG9SQWhUU0Q5RENleXFDeAotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+type: istio.io/key-and-cert
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: istio.polyaxon-polyaxon-operator-sa
+  namespace: polyaxon
+  annotations:
+    istio.io/service-account.name: polyaxon-polyaxon-operator-sa
+  managedFields:
+    - manager: istio_ca
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-30T03:10:32Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:cert-chain.pem': {}
+          'f:key.pem': {}
+          'f:root-cert.pem': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:istio.io/service-account.name': {}
+        'f:type': {}
+data:
+  cert-chain.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUROakNDQWg2Z0F3SUJBZ0lRTnZxc09sUENLTnJkTTNEOUYrb1FvekFOQmdrcWhraUc5dzBCQVFzRkFEQVkKTVJZd0ZBWURWUVFLRXcxamJIVnpkR1Z5TG14dlkyRnNNQjRYRFRJd01EZ3pNREF6TVRBek1Wb1hEVEl3TVRFeQpPREF6TVRBek1Wb3dBRENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNQTF3bk41CkpBRGhSNXl4Mi96K2Rlb2ovN1ZjdGxvTE0wNkhkN1RPdkJPcXVRWC9YaXdkRHh6ODUwY3NGZU04SjJpN01FQ3QKdWEydlAwUGFvbS81OXg1d1lteHVoQlUrVHlzcXMwL1pnN2F4OW5VK256V0lTM1Nzd1BmR1Y5Wkk4VE5jZkdocAoxNUtBUmRQSm05NEIzdFhIMW5qMWhaWUcwb2EwVll0ZGdUdFEyZmNxQ2lNZ09mNlBPVjlJVEtBdTJlRGJQTkM1CmpSdnQrY2JBUnc0OWFrenBwVXVzODZhczJqYW9MRWFTeDJ5b2tNRWxTZ3ZsQTJwMHN3YUt2bkpOUzE2YTRmNEUKaTkrbUVOTXNGZzRhZ0NrbU1ZQVpuU1FJTk5OWXJDMFZNR2prcWhMdmtmR1JYYkxhbTd3QkdYM3ArS3VXemEySQo5YTRvWDZCL05TTU5zZ2NDQXdFQUFhT0JrekNCa0RBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGxCQll3CkZBWUlLd1lCQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd1VRWURWUjBSQVFIL0JFY3cKUllaRGMzQnBabVpsT2k4dlkyeDFjM1JsY2k1c2IyTmhiQzl1Y3k5d2IyeDVZWGh2Ymk5ellTOXdiMng1WVhodgpiaTF3YjJ4NVlYaHZiaTF2Y0dWeVlYUnZjaTF6WVRBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQWlYaytLVkIvClp1cGFsLzNJaFdYcTlwZGdiS2trWUJMQk1mNlE4NGRNTDJmNXhrMzh2YUlwNTY4UmJtOENxOVBvQVFydWxRZS8KU2kxbHRPeC81TDQ5ejdlbXNRZHFiL3dhRkl5cWRHNk9RNWZMZjY1UWlRNzdRcEYrR2ZDYU9NYjM1aE9FZjFpSApabVRqSDIxSW9KaDlIMGI1SGJhZS8xSVlEUG9uSG8rMXNxc3gvTm95TUw4R1ZCYjc2ZU85WWJ5ZkhkTGtybHFDCjFiNFhLbDNUKy9CUk5iZHpvWVJOc1RZcmFxUFZKZXRDaFp2QWQwRXFMdG5icldNNEtseHY0R3RxQlIvYnVGOHgKQndYS1BpeHhncm9QS2N5WUp4WndmQ2ZaN2kwYTRGLy80SVZLYUdoNitUK0FDYlVRMW0zQ2pnTVBtKzBQMlkzOAoyTmZkaFJONEtZbzFTQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  key.pem: >-
+    LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBd0RYQ2Mza2tBT0ZIbkxIYi9QNTE2aVAvdFZ5Mldnc3pUb2QzdE02OEU2cTVCZjllCkxCMFBIUHpuUnl3VjR6d25hTHN3UUsyNXJhOC9ROXFpYi9uM0huQmliRzZFRlQ1UEt5cXpUOW1EdHJIMmRUNmYKTlloTGRLekE5OFpYMWtqeE0xeDhhR25Ya29CRjA4bWIzZ0hlMWNmV2VQV0ZsZ2JTaHJSVmkxMkJPMURaOXlvSwpJeUE1L284NVgwaE1vQzdaNE5zODBMbU5HKzM1eHNCSERqMXFUT21sUzZ6enBxemFOcWdzUnBMSGJLaVF3U1ZLCkMrVURhblN6Qm9xK2NrMUxYcHJoL2dTTDM2WVEweXdXRGhxQUtTWXhnQm1kSkFnMDAxaXNMUlV3YU9TcUV1K1IKOFpGZHN0cWJ2QUVaZmVuNHE1Yk5yWWoxcmloZm9IODFJdzJ5QndJREFRQUJBb0lCQVFDSlBobWhNQTk0SFdOdgp6RU9qQ3VLUkU3RkRBM2NsSmpnMVMxODdHQjZOQUdycWtHUGlwY0VqMXFVaFdhWXJRY2wxNjZyUmsvb3Z2U0UwClJ3bVRZTzJGcTROcm55SHF0VG44UFpvWld0dkVlSi9kS2FDdXJhb0xIa3NPNEczWmtPM0EyYm52S0J3SC9GVmYKbXVZVGlFeGZZemlOMStuUnJQOW50WjRiUytHNXdvdjkwZm5yZlVnU05kL2lwYjlWZGQ3cW5WM1FRN3hsOE56bQpwRWhLOEhXVUcxSGkzaHN4S1pMcTFlUFdGNnU1N1JJVU54ZGxzZkFid1U4Rkw0eWhxUGNoV1Q4WFdaN25IQVg1ClJkWTd5a2FsTTNvNDFqQTFYdHphdHZ2MjdBVmpQOE1MNzl5MEZRcHNJZmRYTUxuazBvZzA0SDVNUzM5eVFzMFAKa3I0TnRrLzVBb0dCQVBUUHNFZmZRM2FTZVMwM0NDLytCRHRZcWtnUUhqOU5XYi9OS3YzVGxBdlUvR1dheERWNAorTVZIa0FnUGk4UmVFMjhQbWI1TW10cW1Td09ibGFRODJ1YWVsOVkydERZV0hkdEZRdHIxSENFRmswN2xGRzE5CkJUN29lWFJHSWlnTE0ycmsrUnB6aExwaXVyTzg2amRCU3AybDN6dG53eGhiTWdaRVlwV3NvcnBiQW9HQkFNaisKb2J3RlA5c2o3YVArS1Q2YTdYdUM5eGNuYWZpbGxKUFQ4d3hZUi9veGhuZEVQV1BtYXByU0pta29DOEdKZGRzVAptYmVRSUExMVZ0SEpqWnFRNHNYd3RFc1dYZGMvSkJROTUwN1E0eTRXR1UxOVlpWWtMTFRBenhDektKbUxqc0lSCkpNNG90cnF3THBlblFIK29aZGVkVnAwZDEvYURLYnU1MDFGbUt2N0ZBb0dCQU9jbWt4UEp3ekZaN0FDOVRZWEQKR3N2T1ZEbm12aWlYS0g3cGdnWlltQmp6NmIwbC9NMWdnOFFDWmdTMmFRbm9xZ0RiZ2hja3piSldBYzVPUVdUcAo4T2FBS0cyakNWVm9YSmlGTlRMNDdLNWhUVTNaRHdpeVd4bWk5OHJKemNaeGpRTUpZQXVSdDJrbGY1UG1kRi9uCnprUThNaU10UGhEcFNycVFKMldiczZxeEFvR0FGdGtyVlk1Yk5mUWRuWmpVNDNNRk1CY3hNNGFkZTFDSFZVNncKd0dTQXVpWkxITis3QXRJOHFDRGZrUENtZFhmRTJBU2dZc2VWZlRJcmptbVZHVThER0hGR2JZcTdYQzZuVVUzQQpMNnQ3UjgvblRISEdhSU9RT1hQNWxmSm4yUnlPTysxcSs2eVJLU1BDQ0NkUkk3SG04ZDNHN05GcHJYSTNta21ECmhpdFJFK2tDZ1lFQXpUNUkxMFNkWFBiU2tqbjg4QVgxa00yOWVJNjdzRGM0QjdoUGNMWSs5eXNvVnBNOWtVYnkKcHJEcGJzTUtXVkl1eHQ1cC9QYTJkcXJnUXp1blNtNHVqaG02UENmSVIxaE1rNFhGS0hOTDN0QUNQQVRUSFhDVgprcDlSdlZTL1dZTHVRbFQzYWpEZFhPa1lrdzYraXN6YW9jN05ZM3B2NFhFRTFDZC9jMmZCM0ZFPQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+  root-cert.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMzakNDQWNhZ0F3SUJBZ0lSQUpWY01yV2FZL3ViS004VmpDZk5VVkV3RFFZSktvWklodmNOQVFFTEJRQXcKR0RFV01CUUdBMVVFQ2hNTlkyeDFjM1JsY2k1c2IyTmhiREFlRncweU1EQTRNekF3TXpFd01UUmFGdzB6TURBNApNamd3TXpFd01UUmFNQmd4RmpBVUJnTlZCQW9URFdOc2RYTjBaWEl1Ykc5allXd3dnZ0VpTUEwR0NTcUdTSWIzCkRRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRHdOMGFPVlRlUUFpcmJIdm9weVlQS1F3L3QxdE00bU9CRTVvdHUKNG12dTRWYTczY0ZFOUVpSTc4WVFSLzhTbURFc0RmWEJpdG9OVGdHZmpEWFBIbXBnVEVMalJVYlRhZWlXOVgvZAoveTMwN1QvZ25TK1FCL21FNWkzL3ROOW0zV05ZT0ZxaFZJWC9KNWxsaityODBPR251dUtBZkZvZTVrNGZ3ZmJUCnNlN0tWWHdKUUhZbnNNeGI4aHIxVURSY0F5N3I2M3FtWmw0L1ZNUWcrc0dYNEUrV1BrUG9TZko2QVF5bE5mZkUKelpLUjZVb1c2a1k0K2RiRkpyYi80TkVIbWZxTEtiZ3RCdkVHTE1hUUlrYm1rRE14UEJPYjd0V01BY1NsODNUVApGZ09TNHVpNWtnQUdJdHhBcStPN2xFSGtremtPdWdWYXlRTUVVMUNuM0g5Yk1FbGRBZ01CQUFHakl6QWhNQTRHCkExVWREd0VCL3dRRUF3SUNCREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUIKQVFCdmE2SDhWZGZXcEJsZ3RVL2ZNWTgvQUxIalFxSnFsbHJCYTN3KyszaytXVzc0Ym9Ja1JMSjBxbFlQWU0yZwptazlVaEpMNkh4MWo0OE01ODh1ZWQ5VWRrdW1qVmlacFpvaitzVW8vYUluajk5MFpFendnbm5FZ0lyYzdLNWhNCnQ3amt3Z0hNa0hSdHIwRk8zZlcwN2JNN0l5SnFVRkpiVURPaUZ4WHZVUFE4NkcrWU5HRFdSOTY4ZVFYNVFWS1oKTVVGalNJM0NCa3FoZWR3Q0h4VWZsUzV1aDVHcExtend5dnUwTlVrTmZzMzdmTlMxWU1hVHp6aGhob2FoTVJLbQp6ei9CdTdUU0s0alNBR1pTeVZYNmdzYUJwUjJQU0xqZU83SW9xcTJvempWZ29ndWhhd0Y3d091SjlxVjc0ZHhVCi9ZWkxlckNtZG9SQWhUU0Q5RENleXFDeAotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+type: istio.io/key-and-cert
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: istio.polyaxon-polyaxon-runs-sa
+  namespace: polyaxon
+  annotations:
+    istio.io/service-account.name: polyaxon-polyaxon-runs-sa
+  managedFields:
+    - manager: istio_ca
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-30T03:10:34Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:cert-chain.pem': {}
+          'f:key.pem': {}
+          'f:root-cert.pem': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:istio.io/service-account.name': {}
+        'f:type': {}
+data:
+  cert-chain.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURNakNDQWhxZ0F3SUJBZ0lRT01iZExpdDZ5N2IwU0lKSERuNWN4akFOQmdrcWhraUc5dzBCQVFzRkFEQVkKTVJZd0ZBWURWUVFLRXcxamJIVnpkR1Z5TG14dlkyRnNNQjRYRFRJd01EZ3pNREF6TVRBek5Gb1hEVEl3TVRFeQpPREF6TVRBek5Gb3dBRENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFPcDV4RXFqCk1RTGZBZWxiVitJNUJsWHJubFIrNU44MnVFNlpvYnZ2bXYxOHMyNksyV0RzeGZzckJIOFVBQWUvNmtLWEFTNkkKdU4za29Wdmo2QWFIay9PRnZ5M0tUMlBBV2o1Nm9TT08yeTgvTDR1Vlc1WHN5THRZVlVmRE83TEdTQ1kydXlMcQpwSjdHeWQ3bGRDZzRodjRDTyt6Z0wvbUZqTmVpY3R6NE9oalY1emsxUEJGRlVUa2RlNzJva09iR2VTb3BwcEl5CkZ4eXRFUVpuL3hQM1dlaFh0QTNTa0g3YmFXQjA4Y2NEdUpTaFNaTGVtTWxQZTVnMjZNTXB2REFCejJ2ZFdud2sKTlFUQitsWGVpVXBtVUNsL3lNSjRzaTlURWd4NlJJbnM5ZHVXbWZVU2pQZjFNUUM0R3FDS2FvWXFsenozZUVyWgpnUTlWWkxZaXNmY01qMzBDQXdFQUFhT0JqekNCakRBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGxCQll3CkZBWUlLd1lCQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd1RRWURWUjBSQVFIL0JFTXcKUVlZL2MzQnBabVpsT2k4dlkyeDFjM1JsY2k1c2IyTmhiQzl1Y3k5d2IyeDVZWGh2Ymk5ellTOXdiMng1WVhodgpiaTF3YjJ4NVlYaHZiaTF5ZFc1ekxYTmhNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUI2a0RkOVdUU2p6TUp5Cm1SbjI4K29obEtRUzUxSUpzUENLNjVCbytzaDhQSlJLalVEZmtpYWQxSFFDM1F2em1QNDc5eHR2dW1kRVhVdkQKa3RabjV3RkFHQnBPZVlvWldjQ2Foc21VKzJrbjQ5eGltSHNuM1VKYkhXa2trejEzNFIvb2dhb0dLalNZeEtnbgorNCt4SzFTbFJUSGsxSy9xMnZveGtDZ29Ya09RcFlxNmRVRU9rQTlBblZEU1RaVVo0U3YrMi93UEhTL1ZPeng2CmorSGpOVHNCNm9HTEZldkdoazZ0S2ZKeUdRNVpNUjNEZFJ0TFpYbmkvSkxhR0g5U1Z1cktiSkFwb3QxcTFGUEwKaWd6MzBNNGw5TVhNbmx3ZTdYb0FYaFJsZ1ZzM2dhTUMvNWNNVjhPLytIOVN4MXUyZUpxT3VCVmYyS2NhSEluVQo4ZXpqVEUxbgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  key.pem: >-
+    LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb2dJQkFBS0NBUUVBNm5uRVNxTXhBdDhCNlZ0WDRqa0dWZXVlVkg3azN6YTRUcG1odSsrYS9YeXpib3JaCllPekYreXNFZnhRQUI3L3FRcGNCTG9pNDNlU2hXK1BvQm9lVDg0Vy9MY3BQWThCYVBucWhJNDdiTHo4dmk1VmIKbGV6SXUxaFZSOE03c3NaSUpqYTdJdXFrbnNiSjN1VjBLRGlHL2dJNzdPQXYrWVdNMTZKeTNQZzZHTlhuT1RVOApFVVZST1IxN3ZhaVE1c1o1S2ltbWtqSVhISzBSQm1mL0UvZFo2RmUwRGRLUWZ0dHBZSFR4eHdPNGxLRkprdDZZCnlVOTdtRGJvd3ltOE1BSFBhOTFhZkNRMUJNSDZWZDZKU21aUUtYL0l3bml5TDFNU0RIcEVpZXoxMjVhWjlSS00KOS9VeEFMZ2FvSXBxaGlxWFBQZDRTdG1CRDFWa3RpS3g5d3lQZlFJREFRQUJBb0lCQURmY0RIeHZobFNWeGtITwp4aEFaMzcyR1pYRGh6aXF6UVpOUUhHekdkMWtlWlN6WG5WUHU5SGVTMXY1alNHS1FRUUhlTWFUaFk1RlJUM094Cnh1d1BUcHI4YVFCQ3Ewa3JZUlJ6YUlJdEhXQ1RJQU9UOEg2MksxZ2VnaXFYZzFoaXpudDBISDhFQVhYbUM5K3oKTUVvSXRYZzhGZ1Nub0NaRXY3bjdkSHZhRXhVcEk2ZjFGTmJTalV0dSt2aVJSdmJ5U0NwQmZVVDdIUG9CTkx0UQpQZ1ZEckhOMDdxSXFaa1FLb05Fd3pDYnlXYUdzdktCTGo5aWMxR0tTRVhCSHA1a282UTQvNEt0ejdCbktpTk1aCi9GeFBIeEpPcjJBOUUzLzE0ZExBVUloakNWNW1vUDU1ZUh6d2dNWXBtZ0s4b2cvd09WQ3VHKzROcUVRS1lZY0QKZU9mV1RZRUNnWUVBK3pkZ2l2SWJnaVdsUkJxMm44SFNPZmpmQzBLYVVtYkUxSytUQXJjbHZmWnF1UnZtQkF5cApONGhES0tGNVNmckd0VDkreklpMk1pbGZUTUtrbUkwdHVvZWNXT0VUL0hQQTQwYUg1VW1TYTdsVGpYUEgvNjNXCnpRL094OERjRFJrMDZybnNpbkJzdmZodXdFdG1tYTNLOG03TFRJTkcvdTFUU2VaTjhJUWdjQ0VDZ1lFQTd2REkKWFc5aXE1eEhPK3hsMHdsYXhkMkc0MnBZaHdaUUpTMitGelkrSEM0K0U0bk9IQVlZVnUvRFFDeDM0TVVpZ1ozYwpZSG1FUkRaWk9XdUYwRDc3TTBuTWswem9VYWhzc05sNmp0akhnYlVQRVR3bmwrQ0w3b2lsTS9DMEpDeGl0Z1I5CnN4Q1hudktyYnpkZW1kTkZBdlRIa1dMNE5nNi9maElCK3BIUFk5MENnWUJ0N2ErYlhaSllBeTBzZmh3SUVJSnoKeDhtaVhjUzE1aTZmZXl6emRUMVl3T20ya3RTMlZPdi9WdXM4Ymx4cTJRZjI3QkFLWkpDRnBzRUREL0dDcDlTbwoyUXE3Z2RLREdBd0I2QzB6VWx4Mk15U3lzMFdEUm9qR052S2ZTbStBYzlWS0dZMitqcSttK1gxTlBERnJjamRxCm1yenZnRXFpNXlzWkhXUmhxUStnd1FLQmdHRW4xdERuTVovRjg5RVIxblZ4SUUvRU84ek11U0p1RnJpSFdQdm4KT21vTEE0SytUZWhuTWc1bmYyVGdyLzNkS3FLNXBabzB6dXROamdvakJrNGV6ZFdVOUhJUW00WllqWmw3VkxJdwp3eTZpaUhYaGw5ZlJuaFJueTRUTEl2UnlkOUM3RXNGMHhiSUR5bUYyaWlqU0Z3V1VzbkVUWlFuV0JWY2x5MWd2CllieWhBb0dBQ0hjWXdWbXdaMHVzTUFncElTdWN3Qjg5ZllTNnovcUpQVFhoNEx1T1psRFlVRGtCb1o5TXFrQmUKa216ZDA4RFVrSkxPMjNuWnltNDdZV3RCK1AxcEI4M1B2d1ltUUNCMlU4N01lOTVxNnlDZm84M0VYeHBmWndBMQpLQ2NibzJvcEtWMlJ5QXhCQUdkZHN3OVZxd0crSmFweStmS2tWQ0lOaDBzMTJFdWZGcmM9Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+  root-cert.pem: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMzakNDQWNhZ0F3SUJBZ0lSQUpWY01yV2FZL3ViS004VmpDZk5VVkV3RFFZSktvWklodmNOQVFFTEJRQXcKR0RFV01CUUdBMVVFQ2hNTlkyeDFjM1JsY2k1c2IyTmhiREFlRncweU1EQTRNekF3TXpFd01UUmFGdzB6TURBNApNamd3TXpFd01UUmFNQmd4RmpBVUJnTlZCQW9URFdOc2RYTjBaWEl1Ykc5allXd3dnZ0VpTUEwR0NTcUdTSWIzCkRRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRHdOMGFPVlRlUUFpcmJIdm9weVlQS1F3L3QxdE00bU9CRTVvdHUKNG12dTRWYTczY0ZFOUVpSTc4WVFSLzhTbURFc0RmWEJpdG9OVGdHZmpEWFBIbXBnVEVMalJVYlRhZWlXOVgvZAoveTMwN1QvZ25TK1FCL21FNWkzL3ROOW0zV05ZT0ZxaFZJWC9KNWxsaityODBPR251dUtBZkZvZTVrNGZ3ZmJUCnNlN0tWWHdKUUhZbnNNeGI4aHIxVURSY0F5N3I2M3FtWmw0L1ZNUWcrc0dYNEUrV1BrUG9TZko2QVF5bE5mZkUKelpLUjZVb1c2a1k0K2RiRkpyYi80TkVIbWZxTEtiZ3RCdkVHTE1hUUlrYm1rRE14UEJPYjd0V01BY1NsODNUVApGZ09TNHVpNWtnQUdJdHhBcStPN2xFSGtremtPdWdWYXlRTUVVMUNuM0g5Yk1FbGRBZ01CQUFHakl6QWhNQTRHCkExVWREd0VCL3dRRUF3SUNCREFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUIKQVFCdmE2SDhWZGZXcEJsZ3RVL2ZNWTgvQUxIalFxSnFsbHJCYTN3KyszaytXVzc0Ym9Ja1JMSjBxbFlQWU0yZwptazlVaEpMNkh4MWo0OE01ODh1ZWQ5VWRrdW1qVmlacFpvaitzVW8vYUluajk5MFpFendnbm5FZ0lyYzdLNWhNCnQ3amt3Z0hNa0hSdHIwRk8zZlcwN2JNN0l5SnFVRkpiVURPaUZ4WHZVUFE4NkcrWU5HRFdSOTY4ZVFYNVFWS1oKTVVGalNJM0NCa3FoZWR3Q0h4VWZsUzV1aDVHcExtend5dnUwTlVrTmZzMzdmTlMxWU1hVHp6aGhob2FoTVJLbQp6ei9CdTdUU0s0alNBR1pTeVZYNmdzYUJwUjJQU0xqZU83SW9xcTJvempWZ29ndWhhd0Y3d091SjlxVjc0ZHhVCi9ZWkxlckNtZG9SQWhUU0Q5RENleXFDeAotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+type: istio.io/key-and-cert
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-agent-sa-token-jznlb
+  namespace: polyaxon
+  annotations:
+    kubernetes.io/service-account.name: polyaxon-polyaxon-agent-sa
+    kubernetes.io/service-account.uid: bd6b766f-6ac9-46ef-b625-40781594a61d
+  managedFields:
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:ca.crt': {}
+          'f:namespace': {}
+          'f:token': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubernetes.io/service-account.name': {}
+            'f:kubernetes.io/service-account.uid': {}
+        'f:type': {}
+data:
+  ca.crt: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01EZ3hPREF6TVRZek5sb1hEVE13TURneE5qQXpNVFl6Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTURqCi9idld2NHl3cEZwazErT0ZTVFhmNE9wSUoxNXdhNVZuSURYN2x4MHlqdjJlcll3aUVVZ0gwWDdCSlh3TTlpNG4KeVphSHNtcnY0RGRkekNxS25jSlZBanRQTk9kemNOd1IxS0twY2JaNzNWODdZeDNNSVZaZi9vU0tLdDcvLzNwSwp1dWxmWGtabU5KRktYQW96QTNyZjg5bWtpZVpRRlgwN0V1K2VSNDdweGkzMTNkTnJQT0xXSlhVd1VhVDhKT2YrCi9DWDZxOW1vQ01CVnR5eUY2UkxoaGp0VG9wdnZrSWlveXNTbTByNkNiejBYc0RwUlBkZUtHWXU0WjVYSlVrcFgKZ3FNUDh4RktsLzJhWERLeng4ZGdjckk5V0h3UXR3MmtXK3ZGSHN0RnRwdG1OdFExN01jaGJERHJDd00rcFhVeAovbFE2RWE4ZkIxckM4c09WR1U4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGeVI0eTgzTHNtcjl4a1Uwd2lUc0gzdXRvbisKYzJGeXMyZy9jNXRwUUxXSDZUZFczZ01OWjhMTk5BNDgzdkE1NEFZeG1jbWJzeklCYnhwekVZRE1kT0FQSFRqagowaUpZei9Ra0ZveThuSFFUNk9Yd0xjQk9iRmJnQktNdlRQRGNFNjZ0YWNMdUYrWXMxVFRqYmJRc1RqNytUaUVGCkN1WnJzam44U1l3czRaMlJ6bE9na3prem9FdHZCY3hwZXhDQUNkZ2ZyR3dBd3ZNVTQyS2hxeXg4bHptQm1HMWIKZ3R4MUNQQW12TjUxd05UUjVvL1JMWURQb2Nhc1dPMU9tT0lLQmplKzhHTGFNMnFqcmkyb3p6YTNoMERnekF5OQpQL0h0dGNuZ042WlZCcTYyU2gyR3hZOGxaL2Zod0N6R2w3TDlzWkk5TDdBUG81bnZRVHF2TlBEbUVnMD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  namespace: cG9seWF4b24=
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklpMTRTelJ0UkhoR2RVTXlkbHBFYlZGRldWOXNVMDB4Y0RKVlRXc3liSGR5ZVdndFpscE1aM2hqY1VFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUp3YjJ4NVlYaHZiaUlzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUp3YjJ4NVlYaHZiaTF3YjJ4NVlYaHZiaTFoWjJWdWRDMXpZUzEwYjJ0bGJpMXFlbTVzWWlJc0ltdDFZbVZ5Ym1WMFpYTXVhVzh2YzJWeWRtbGpaV0ZqWTI5MWJuUXZjMlZ5ZG1salpTMWhZMk52ZFc1MExtNWhiV1VpT2lKd2IyeDVZWGh2Ymkxd2IyeDVZWGh2YmkxaFoyVnVkQzF6WVNJc0ltdDFZbVZ5Ym1WMFpYTXVhVzh2YzJWeWRtbGpaV0ZqWTI5MWJuUXZjMlZ5ZG1salpTMWhZMk52ZFc1MExuVnBaQ0k2SW1Ka05tSTNOalptTFRaaFl6a3RORFpsWmkxaU5qSTFMVFF3TnpneE5UazBZVFl4WkNJc0luTjFZaUk2SW5ONWMzUmxiVHB6WlhKMmFXTmxZV05qYjNWdWREcHdiMng1WVhodmJqcHdiMng1WVhodmJpMXdiMng1WVhodmJpMWhaMlZ1ZEMxellTSjkuSExkbkNRQUQ5VFR2Y2ctUHMtbGtTU2NUTDViS2k0LVVORnM5NXFadFdIaUI0NTVhbWJIS3d0THYwQjFwdXFNcDBJbzhfSjdYNEVTTHhFQkh5WWhPZl9HdVdOZWxtOEtZbWFNM19GYm9nTEh1ZjNXeFU1cWxsNkNZN1hxRW1ZUkJVdW9BSldTRTNxcC1hbVhRTC1qczNzTTZvSG5BWTd3YTgxYW13ZE80ZXd1QWtwdTFNM0tIT2JmR2pneDlDLV9ESU10OTVsMzRaQ2RZS3VJMGhpSW5xS1JiVzdaRmpNWHJuWk94aFRpRHo5STNUS2NyY3M2TnRaemRHc3daeDRTaWRhMTAwRTZJTWRUYjlMRjZiWS11d0t5RWdGNi12eFJMakRTVjlLb2NaSWhMNDcySDF5LVc5YzVHY1ZDd2hmeENkS21WSXRpSEV3ZHdnQklDRUpYYTZn
+type: kubernetes.io/service-account-token
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-operator-sa-token-75kzq
+  namespace: polyaxon
+  annotations:
+    kubernetes.io/service-account.name: polyaxon-polyaxon-operator-sa
+    kubernetes.io/service-account.uid: 09dfe88f-5ee3-429f-b41a-dcd66b4cf9ac
+  managedFields:
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:ca.crt': {}
+          'f:namespace': {}
+          'f:token': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubernetes.io/service-account.name': {}
+            'f:kubernetes.io/service-account.uid': {}
+        'f:type': {}
+data:
+  ca.crt: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01EZ3hPREF6TVRZek5sb1hEVE13TURneE5qQXpNVFl6Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTURqCi9idld2NHl3cEZwazErT0ZTVFhmNE9wSUoxNXdhNVZuSURYN2x4MHlqdjJlcll3aUVVZ0gwWDdCSlh3TTlpNG4KeVphSHNtcnY0RGRkekNxS25jSlZBanRQTk9kemNOd1IxS0twY2JaNzNWODdZeDNNSVZaZi9vU0tLdDcvLzNwSwp1dWxmWGtabU5KRktYQW96QTNyZjg5bWtpZVpRRlgwN0V1K2VSNDdweGkzMTNkTnJQT0xXSlhVd1VhVDhKT2YrCi9DWDZxOW1vQ01CVnR5eUY2UkxoaGp0VG9wdnZrSWlveXNTbTByNkNiejBYc0RwUlBkZUtHWXU0WjVYSlVrcFgKZ3FNUDh4RktsLzJhWERLeng4ZGdjckk5V0h3UXR3MmtXK3ZGSHN0RnRwdG1OdFExN01jaGJERHJDd00rcFhVeAovbFE2RWE4ZkIxckM4c09WR1U4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGeVI0eTgzTHNtcjl4a1Uwd2lUc0gzdXRvbisKYzJGeXMyZy9jNXRwUUxXSDZUZFczZ01OWjhMTk5BNDgzdkE1NEFZeG1jbWJzeklCYnhwekVZRE1kT0FQSFRqagowaUpZei9Ra0ZveThuSFFUNk9Yd0xjQk9iRmJnQktNdlRQRGNFNjZ0YWNMdUYrWXMxVFRqYmJRc1RqNytUaUVGCkN1WnJzam44U1l3czRaMlJ6bE9na3prem9FdHZCY3hwZXhDQUNkZ2ZyR3dBd3ZNVTQyS2hxeXg4bHptQm1HMWIKZ3R4MUNQQW12TjUxd05UUjVvL1JMWURQb2Nhc1dPMU9tT0lLQmplKzhHTGFNMnFqcmkyb3p6YTNoMERnekF5OQpQL0h0dGNuZ042WlZCcTYyU2gyR3hZOGxaL2Zod0N6R2w3TDlzWkk5TDdBUG81bnZRVHF2TlBEbUVnMD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  namespace: cG9seWF4b24=
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklpMTRTelJ0UkhoR2RVTXlkbHBFYlZGRldWOXNVMDB4Y0RKVlRXc3liSGR5ZVdndFpscE1aM2hqY1VFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUp3YjJ4NVlYaHZiaUlzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUp3YjJ4NVlYaHZiaTF3YjJ4NVlYaHZiaTF2Y0dWeVlYUnZjaTF6WVMxMGIydGxiaTAzTld0NmNTSXNJbXQxWW1WeWJtVjBaWE11YVc4dmMyVnlkbWxqWldGalkyOTFiblF2YzJWeWRtbGpaUzFoWTJOdmRXNTBMbTVoYldVaU9pSndiMng1WVhodmJpMXdiMng1WVhodmJpMXZjR1Z5WVhSdmNpMXpZU0lzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVnlkbWxqWlMxaFkyTnZkVzUwTG5WcFpDSTZJakE1WkdabE9EaG1MVFZsWlRNdE5ESTVaaTFpTkRGaExXUmpaRFkyWWpSalpqbGhZeUlzSW5OMVlpSTZJbk41YzNSbGJUcHpaWEoyYVdObFlXTmpiM1Z1ZERwd2IyeDVZWGh2Ympwd2IyeDVZWGh2Ymkxd2IyeDVZWGh2YmkxdmNHVnlZWFJ2Y2kxellTSjkuVHhza1hWc3NqRXZvSFhOQjNmd0x0UEU5YmRaUTgzaEtXbjMtUHk2STk4UE5jdHd3bmJybGgwSDhjODlnUUJWdmlYWElPTVFDUEVON2QzQUZBYmp2SkZoRE51RHprMFgzZXE4dC1QejJzTTNoOUVyYzl2T21PNlh3VVlWcTVJMnV1TUdLZW9EV2lJNjlmY2lKNEZHYzJCLVliZVF4NUlqcXBWZ0hWRUtYdkNIRmRWT3ppa0lfeTJPcFdoWC1Xb3I5bUtSVlV6SFN6eUM2Ukx5cVlxdU9jeUY2ajBsOFh6NWZqRGk4U1dmX2loVlhXSmY0clF6X2N3MFJhZ0dOeGVqcXlya3JnLUM5UVlHdS1SaTJSS1NMdEhIYzVsSi1PbzdnQ1dVM2pvbEdQcjYtdGlwdjRsTFc1UVVKTUhBdE45TkdRa2N4TE9PcnpGUmJURTFZd3UtN3dB
+type: kubernetes.io/service-account-token
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-platform-secret
+  namespace: polyaxon
+  labels:
+    app.kubernetes.io/component: polyaxon-config
+    app.kubernetes.io/instance: polyaxon-1.1.7
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/name: polyaxon-polyaxon-platform-secret
+    app.kubernetes.io/part-of: polyaxon-core
+    app.kubernetes.io/version: 1.1.7
+    heritage: Tiller
+    release: polyaxon
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:POLYAXON_ADMIN_PASSWORD': {}
+          'f:POLYAXON_SECRET_INTERNAL_TOKEN': {}
+          'f:POLYAXON_SECRET_KEY': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/component': {}
+            'f:app.kubernetes.io/instance': {}
+            'f:app.kubernetes.io/managed-by': {}
+            'f:app.kubernetes.io/name': {}
+            'f:app.kubernetes.io/part-of': {}
+            'f:app.kubernetes.io/version': {}
+            'f:heritage': {}
+            'f:release': {}
+        'f:type': {}
+data:
+  POLYAXON_ADMIN_PASSWORD: cm9vdHBhc3N3b3Jk
+  POLYAXON_SECRET_INTERNAL_TOKEN: >-
+    ZDBuaHVzUVc4RURGTUM2bmJMREhHTno3ZGxsSlhpa3N1eUpkdlRETkNTbDRnRDJBUEJTUjJJSWNCMHFF
+  POLYAXON_SECRET_KEY: >-
+    M0JYRFBBMnNYRklFVmtBQmtMV2RzM2p3SUZEWGcybFJ4bmFTWXZGOHY5S0pmWTBCa20wWHhDWlhINFZ4
+type: Opaque
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-polyaxon-runs-sa-token-8q9fj
+  namespace: polyaxon
+  annotations:
+    kubernetes.io/service-account.name: polyaxon-polyaxon-runs-sa
+    kubernetes.io/service-account.uid: 8835043e-7055-4db5-893d-21d3de3499e0
+  managedFields:
+    - manager: kube-controller-manager
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:ca.crt': {}
+          'f:namespace': {}
+          'f:token': {}
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubernetes.io/service-account.name': {}
+            'f:kubernetes.io/service-account.uid': {}
+        'f:type': {}
+data:
+  ca.crt: >-
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJd01EZ3hPREF6TVRZek5sb1hEVE13TURneE5qQXpNVFl6Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTURqCi9idld2NHl3cEZwazErT0ZTVFhmNE9wSUoxNXdhNVZuSURYN2x4MHlqdjJlcll3aUVVZ0gwWDdCSlh3TTlpNG4KeVphSHNtcnY0RGRkekNxS25jSlZBanRQTk9kemNOd1IxS0twY2JaNzNWODdZeDNNSVZaZi9vU0tLdDcvLzNwSwp1dWxmWGtabU5KRktYQW96QTNyZjg5bWtpZVpRRlgwN0V1K2VSNDdweGkzMTNkTnJQT0xXSlhVd1VhVDhKT2YrCi9DWDZxOW1vQ01CVnR5eUY2UkxoaGp0VG9wdnZrSWlveXNTbTByNkNiejBYc0RwUlBkZUtHWXU0WjVYSlVrcFgKZ3FNUDh4RktsLzJhWERLeng4ZGdjckk5V0h3UXR3MmtXK3ZGSHN0RnRwdG1OdFExN01jaGJERHJDd00rcFhVeAovbFE2RWE4ZkIxckM4c09WR1U4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFGeVI0eTgzTHNtcjl4a1Uwd2lUc0gzdXRvbisKYzJGeXMyZy9jNXRwUUxXSDZUZFczZ01OWjhMTk5BNDgzdkE1NEFZeG1jbWJzeklCYnhwekVZRE1kT0FQSFRqagowaUpZei9Ra0ZveThuSFFUNk9Yd0xjQk9iRmJnQktNdlRQRGNFNjZ0YWNMdUYrWXMxVFRqYmJRc1RqNytUaUVGCkN1WnJzam44U1l3czRaMlJ6bE9na3prem9FdHZCY3hwZXhDQUNkZ2ZyR3dBd3ZNVTQyS2hxeXg4bHptQm1HMWIKZ3R4MUNQQW12TjUxd05UUjVvL1JMWURQb2Nhc1dPMU9tT0lLQmplKzhHTGFNMnFqcmkyb3p6YTNoMERnekF5OQpQL0h0dGNuZ042WlZCcTYyU2gyR3hZOGxaL2Zod0N6R2w3TDlzWkk5TDdBUG81bnZRVHF2TlBEbUVnMD0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+  namespace: cG9seWF4b24=
+  token: >-
+    ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNklpMTRTelJ0UkhoR2RVTXlkbHBFYlZGRldWOXNVMDB4Y0RKVlRXc3liSGR5ZVdndFpscE1aM2hqY1VFaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUp3YjJ4NVlYaHZiaUlzSW10MVltVnlibVYwWlhNdWFXOHZjMlZ5ZG1salpXRmpZMjkxYm5RdmMyVmpjbVYwTG01aGJXVWlPaUp3YjJ4NVlYaHZiaTF3YjJ4NVlYaHZiaTF5ZFc1ekxYTmhMWFJ2YTJWdUxUaHhPV1pxSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXpaWEoyYVdObExXRmpZMjkxYm5RdWJtRnRaU0k2SW5CdmJIbGhlRzl1TFhCdmJIbGhlRzl1TFhKMWJuTXRjMkVpTENKcmRXSmxjbTVsZEdWekxtbHZMM05sY25acFkyVmhZMk52ZFc1MEwzTmxjblpwWTJVdFlXTmpiM1Z1ZEM1MWFXUWlPaUk0T0RNMU1EUXpaUzAzTURVMUxUUmtZalV0T0RrelpDMHlNV1F6WkdVek5EazVaVEFpTENKemRXSWlPaUp6ZVhOMFpXMDZjMlZ5ZG1salpXRmpZMjkxYm5RNmNHOXNlV0Y0YjI0NmNHOXNlV0Y0YjI0dGNHOXNlV0Y0YjI0dGNuVnVjeTF6WVNKOS5OdzhnUzAyZVU3c1FzclQ1aDFZUFE2Y3NBT01TdDA0dWI0WW5ucDN4TFg5STR2X3ZOd2F2YnlMWm5ySGRoNTIwSlplSkxFZzB3TXdBZHhHZjB6MUJaWkJ1SkVDSVBsWXRfTFlWUVhrV2lmWFlRY1NNbFhLbXFsOV9QYVFIUmR3VUdrZlRGbXlYRkRRbWJDWWdneXhUMFhZX1pQQmpTdm1fYkVacDRONTBPREo5NzR5am0yeXgwWDUySFhVR3dhTjVHaTM5OTQ2Sk1ONDM1MUp6VjBHdjBnNUJEY2p1cGtXWnRySnFGaUotdWlEd215aDJZU2VwVDJ5T3NBZTVvSFhHUXdHMGRvbjNzc21SaWRiYTJqa2d4RzB6QTN1aDJnYmhJZXJMSHJkRzFLUF90RVlKRVkycVVXVEJ4WF9mSDIyOWpTcUlkU09CSUVBWUJseHFuWEJQVkE=
+type: kubernetes.io/service-account-token
+kind: Secret
+apiVersion: v1
+
+---
+metadata:
+  name: polyaxon-postgresql
+  namespace: polyaxon
+  labels:
+    app: postgresql
+    chart: postgresql-8.2.1
+    heritage: Tiller
+    release: polyaxon
+  managedFields:
+    - manager: Go-http-client
+      operation: Update
+      apiVersion: v1
+      time: '2020-08-20T06:38:42Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:data':
+          .: {}
+          'f:postgresql-password': {}
+        'f:metadata':
+          'f:labels':
+            .: {}
+            'f:app': {}
+            'f:chart': {}
+            'f:heritage': {}
+            'f:release': {}
+        'f:type': {}
+data:
+  postgresql-password: cG9seWF4b24=
+type: Opaque
+kind: Secret
+apiVersion: v1
+
