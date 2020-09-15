@@ -140,15 +140,15 @@ spec:
         kubernetes.io/os: linux
         ingress-nginx: enable
       containers:
-      - image: nginx/nginx-ingress:1.5.5
+      - image: nginx/nginx-ingress:1.5.6
         name: nginx-ingress
         ports:
         - name: http
           containerPort: 80
-          hostPort: 80
+          hostPort: 8003
         - name: https
           containerPort: 443
-          hostPort: 443
+          hostPort: 401
         - name: prometheus
           containerPort: 9113
         env:
