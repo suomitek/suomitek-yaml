@@ -9,7 +9,7 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: nginx-ingress 
+  name: nginx-ingress
   namespace: nginx-ingress
 
 ---
@@ -136,6 +136,9 @@ spec:
         app: nginx-ingress
     spec:
       serviceAccountName: nginx-ingress
+      nodeSelector:
+        kubernetes.io/os: linux
+        ingress-nginx: enable
       containers:
       - image: nginx/nginx-ingress:1.5.5
         name: nginx-ingress
